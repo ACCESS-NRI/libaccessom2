@@ -19,7 +19,7 @@ Further information about ACCESS-OM2 can be found in the [ACCESS-OM2 wiki](https
 
 This respository contains submodules, so you will need to clone it with the `--recursive` flag:
 ```
-git clone --recursive https://github.com/COSIMA/libaccessom2.git
+git clone --recursive https://github.com/ACCESS-NRI/libaccessom2.git
 ```
 
 To update a previous clone of this repository to the latest version, you will need to do 
@@ -72,7 +72,7 @@ This repository also includes ice and ocean stubs. These are stand-ins for the t
 How to build libaccessom2, YATM, ice\_stub and ocean\_stub on gadi (NCI):
 
 ```{bash}
-git clone https://github.com/COSIMA/libaccessom2.git
+git clone https://github.com/ACCESS-NRI/libaccessom2.git
 cd libaccessom2
 ./build_on_gadi.sh
 ```
