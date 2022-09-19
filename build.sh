@@ -1,18 +1,23 @@
 #!/bin/bash
 
-PLATFORM=$1
-if [ -z "$2" ]
+PROGNAME="$( basename ${BASH_SOURCE[0]} )"
+PROJDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+BUILDDIR="${PROJDIR}/build"
+PLATFORM=""
+
+if hostname --fqdn | grep gadi.nci.org.au$ > /dev/null
 then
-    FIND_NETCDF=ON
-else
-    FIND_NETCDF=$2
+	echo "${PROGNAME}: Set up environment on gadi.nci.org.au"
+	PLATFORM="nci"
+	module purge
+	module load intel-compiler/2019.5.281
+	module load netcdf/4.7.4
+	module load openmpi/4.0.2
 fi
 
-MYDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+echo -e "${PROGNAME}: executing cmake with \$PATH set to: $PATH\n"
 
-cd $MYDIR && \
-mkdir -p build && \
-cd build && \
-cmake -DPLATFORM=$PLATFORM -DFIND_NETCDF=$FIND_NETCDF ../ && \
-make VERBOSE=1 && \
-cd -
+rm -rf ${BUILDDIR} && \
+mkdir -p ${BUILDDIR} && \
+cmake -S ${PROJDIR} -B ${BUILDDIR} -DPLATFORM="${PLATFORM}" && \
+cmake --build ${BUILDDIR} --verbose

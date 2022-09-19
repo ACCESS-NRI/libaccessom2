@@ -74,7 +74,7 @@ How to build libaccessom2, YATM, ice\_stub and ocean\_stub on gadi (NCI):
 ```{bash}
 git clone https://github.com/ACCESS-NRI/libaccessom2.git
 cd libaccessom2
-./build_on_gadi.sh
+./build.sh
 ```
 
 # Run tests on Gadi (NCI)
