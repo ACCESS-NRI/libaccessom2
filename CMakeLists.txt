@@ -2,6 +2,11 @@
 cmake_minimum_required(VERSION 3.5 FATAL_ERROR)
 project(matm Fortran)
 
+cmake_host_system_information(RESULT my_fqdn QUERY FQDN)
+message("---- Detected FQDN: " ${my_fqdn})
+cmake_host_system_information(RESULT my_ncores QUERY NUMBER_OF_LOGICAL_CORES)
+message("---- Detected NUMBER_OF_LOGICAL_CORES: " ${my_ncores})
+
 # set output paths for modules, archives, and executables
 set(CMAKE_Fortran_MODULE_DIRECTORY ${PROJECT_BINARY_DIR}/include)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
@@ -31,13 +36,14 @@ else()
   endif()
 endif()
 
-option(FIND_NETCDF "Use FindNetCDF to generate NetCDF configuration" ON)
-if(${FIND_NETCDF})
+if(PLATFORM MATCHES "nci")
+  message("---- Do not find_package NetCDF to generate NetCDF configuration")
+  set(NETCDF_LIBRARIES netcdff)
+else()
+  message("---- Do find_package NetCDF to generate NetCDF configuration")
   set (NETCDF_F90 "YES")
   find_package(NetCDF REQUIRED)
   include_directories(${NETCDF_F90_INCLUDE_DIRS})
-else()
-  set(NETCDF_LIBRARIES netcdff)
 endif()
 
 # compiler flags for gfortran
