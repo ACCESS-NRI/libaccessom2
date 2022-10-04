@@ -20,4 +20,4 @@ echo -e "${PROGNAME}: executing cmake with \$PATH set to: $PATH\n"
 rm -rf ${BUILDDIR} && \
 mkdir -p ${BUILDDIR} && \
 cmake -S ${PROJDIR} -B ${BUILDDIR} -DPLATFORM="${PLATFORM}" && \
-make -C ${BUILDDIR} VERBOSE=1
+cmake --build ${BUILDDIR} --verbose
