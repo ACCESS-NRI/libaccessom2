@@ -8,7 +8,7 @@ PLATFORM=""
 if hostname --fqdn | grep gadi.nci.org.au$ > /dev/null
 then
 	echo "${PROGNAME}: Set up environment on gadi.nci.org.au"
-        PLATFORM="nci"
+	PLATFORM="nci"
 	module purge
 	module load intel-compiler/2019.5.281
 	module load netcdf/4.7.4
