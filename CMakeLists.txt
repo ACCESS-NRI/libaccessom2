@@ -1,11 +1,22 @@
 # cmake version, project name, language
-cmake_minimum_required(VERSION 3.5 FATAL_ERROR)
+cmake_minimum_required(VERSION 3.8 FATAL_ERROR)
 project(matm Fortran)
 
 cmake_host_system_information(RESULT my_fqdn QUERY FQDN)
 message("---- Detected FQDN: " ${my_fqdn})
 cmake_host_system_information(RESULT my_ncores QUERY NUMBER_OF_LOGICAL_CORES)
 message("---- Detected NUMBER_OF_LOGICAL_CORES: " ${my_ncores})
+
+# https://reproducible-builds.org/docs/source-date-epoch/
+execute_process(
+  COMMAND git log -1 --pretty=%ct
+  WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+  OUTPUT_VARIABLE SOURCE_DATE_EPOCH
+  OUTPUT_STRIP_TRAILING_WHITESPACE
+)
+message("---- SOURCE_DATE_EPOCH: " ${SOURCE_DATE_EPOCH})
+#STRING(TIMESTAMP BUILD_DATE "%Y-%m-%d" UTC)
+#message("---- BUILD_DATE: " ${BUILD_DATE})
 
 # set output paths for modules, archives, and executables
 set(CMAKE_Fortran_MODULE_DIRECTORY ${PROJECT_BINARY_DIR}/include)
@@ -153,16 +164,16 @@ add_dependencies(couple forcing util datetime oasis3-mct)
 set(LIBACCESSOM2 ${CMAKE_BINARY_DIR}/lib/libaccessom2.a)
 
 add_custom_target(combined
-        COMMAND ar -x $<TARGET_FILE:datetime>
-        COMMAND ar -x $<TARGET_FILE:jsonfortran>
-        COMMAND ar -x $<TARGET_FILE:mct>
-        COMMAND ar -x $<TARGET_FILE:mpeu>
-        COMMAND ar -x $<TARGET_FILE:psmile.MPI1>
-        COMMAND ar -x $<TARGET_FILE:scrip>
-        COMMAND ar -x $<TARGET_FILE:util>
-        COMMAND ar -x $<TARGET_FILE:forcing>
-        COMMAND ar -x $<TARGET_FILE:couple>
-        COMMAND ar -qcs ${LIBACCESSOM2} *.o
+        COMMAND ar -xDv $<TARGET_FILE:datetime>
+        COMMAND ar -xDv $<TARGET_FILE:jsonfortran>
+        COMMAND ar -xDv $<TARGET_FILE:mct>
+        COMMAND ar -xDv $<TARGET_FILE:mpeu>
+        COMMAND ar -xDv $<TARGET_FILE:psmile.MPI1>
+        COMMAND ar -xDv $<TARGET_FILE:scrip>
+        COMMAND ar -xDv $<TARGET_FILE:util>
+        COMMAND ar -xDv $<TARGET_FILE:forcing>
+        COMMAND ar -xDv $<TARGET_FILE:couple>
+        COMMAND ar -qcsDv ${LIBACCESSOM2} *.o
         WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
         DEPENDS datetime jsonfortran mct mpeu psmile.MPI1 scrip util forcing couple
         )
