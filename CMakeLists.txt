@@ -1,5 +1,5 @@
-# cmake version, project name, language
-cmake_minimum_required(VERSION 3.5 FATAL_ERROR)
+# https://cmake.org/cmake/help/v3.6/module/FindPkgConfig.html
+cmake_minimum_required(VERSION 3.6 FATAL_ERROR)
 project(matm Fortran)
 
 # set output paths for modules, archives, and executables
@@ -36,15 +36,11 @@ else()
   endif()
 endif()
 
-if(PLATFORM MATCHES "nci")
-  message("---- Do not find_package NetCDF to generate NetCDF configuration")
-  set(NETCDF_LIBRARIES netcdff)
-else()
-  message("---- Do find_package NetCDF to generate NetCDF configuration")
-  set (NETCDF_F90 "YES")
-  find_package(NetCDF REQUIRED)
-  include_directories(${NETCDF_F90_INCLUDE_DIRS})
-endif()
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(NETCDF REQUIRED IMPORTED_TARGET "netcdf-fortran")
+message("---- NETCDF_INCLUDEDIR: " ${NETCDF_INCLUDEDIR})
+message("---- NETCDF_INCLUDE_DIRS: " ${NETCDF_INCLUDE_DIRS})
+include_directories(${NETCDF_INCLUDEDIR})
 
 # compiler flags for gfortran
 if(CMAKE_Fortran_COMPILER_ID MATCHES GNU)
@@ -174,7 +170,7 @@ set_target_properties(accessom2 PROPERTIES IMPORTED_LOCATION ${LIBACCESSOM2})
 # libforcing test executable
 file(GLOB FORCING_TEST_SOURCES libforcing/test/*.F90)
 add_executable(forcing_test.exe ${FORCING_TEST_SOURCES})
-target_link_libraries(forcing_test.exe forcing util datetime jsonfortran ${NETCDF_LIBRARIES})
+target_link_libraries(forcing_test.exe forcing util datetime jsonfortran PkgConfig::NETCDF)
 set_target_properties(forcing_test.exe PROPERTIES
                       RUNTIME_OUTPUT_DIRECTORY libforcing/test/
 )
@@ -182,15 +178,15 @@ set_target_properties(forcing_test.exe PROPERTIES
 # yatm executable
 file(GLOB ATM_SOURCES atm/src/*.F90)
 add_executable(yatm.exe ${ATM_SOURCES})
-target_link_libraries(yatm.exe accessom2 ${NETCDF_LIBRARIES} ${MPI_Fortran_LIBRARIES})
+target_link_libraries(yatm.exe accessom2 PkgConfig::NETCDF ${MPI_Fortran_LIBRARIES})
 
 # ice stub executable
 file(GLOB ICE_STUB_SOURCES ice_stub/src/*.F90)
 add_executable(ice_stub.exe ${ICE_STUB_SOURCES})
-target_link_libraries(ice_stub.exe accessom2 ${NETCDF_LIBRARIES} ${MPI_Fortran_LIBRARIES})
+target_link_libraries(ice_stub.exe accessom2 PkgConfig::NETCDF ${MPI_Fortran_LIBRARIES})
 
 # ocean stub executable
 file(GLOB OCEAN_STUB_SOURCES ocean_stub/src/*.F90)
 add_executable(ocean_stub.exe ${OCEAN_STUB_SOURCES})
-target_link_libraries(ocean_stub.exe accessom2 ${NETCDF_LIBRARIES} ${MPI_Fortran_LIBRARIES})
+target_link_libraries(ocean_stub.exe accessom2 PkgConfig::NETCDF ${MPI_Fortran_LIBRARIES})
 
