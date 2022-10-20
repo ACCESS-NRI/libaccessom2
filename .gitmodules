@@ -6,4 +6,4 @@
 	url = https://github.com/wavebitscientific/datetime-fortran.git
 [submodule "oasis3-mct"]
 	path = oasis3-mct
-	url = https://github.com/COSIMA/oasis3-mct.git
+	url = https://github.com/ACCESS-NRI/oasis3-mct.git
