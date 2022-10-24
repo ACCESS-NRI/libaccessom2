@@ -86,17 +86,16 @@ add_dependencies(jsonfortran json-fortran)
 set_property(TARGET jsonfortran PROPERTY IMPORTED_LOCATION ${BINARY_DIR}/lib/libjsonfortran.a)
 
 # oasis external project
-# json-fortran external project
 ExternalProject_Add(oasis3-mct
     DOWNLOAD_COMMAND ""
     SOURCE_DIR ${CMAKE_SOURCE_DIR}/oasis3-mct
     CONFIGURE_COMMAND ""
     BUILD_IN_SOURCE 1
-    BUILD_COMMAND make VERBOSE=1 ${PLATFORM}
-    INSTALL_COMMAND cmake -E echo "Skipping json-fortran install step."
+    BUILD_COMMAND ./build.sh
+    INSTALL_COMMAND cmake -E echo "Skipping oasis3-mct install step."
 )
 ExternalProject_Get_property(oasis3-mct BINARY_DIR)
-include_directories(${BINARY_DIR}/Linux/build/lib/psmile.MPI1/)
+include_directories(${BINARY_DIR}/compile_oa3-mct/build/lib/psmile.MPI1/)
 add_library(mct STATIC IMPORTED)
 add_library(mpeu STATIC IMPORTED)
 add_library(psmile.MPI1 STATIC IMPORTED)
@@ -117,6 +116,8 @@ execute_process(
   OUTPUT_VARIABLE GIT_URL
   OUTPUT_STRIP_TRAILING_WHITESPACE
 )
+add_definitions("-DGIT_URL='${GIT_URL}'")
+message("---- GIT_URL: " ${GIT_URL})
 
 # Get the latest abbreviated commit hash of the working branch
 execute_process(
@@ -125,9 +126,8 @@ execute_process(
   OUTPUT_VARIABLE GIT_COMMIT_HASH
   OUTPUT_STRIP_TRAILING_WHITESPACE
 )
-
 add_definitions("-DGIT_COMMIT_HASH='${GIT_COMMIT_HASH}'")
-add_definitions("-DGIT_URL='${GIT_URL}'")
+message("---- GIT_COMMIT_HASH: " ${GIT_COMMIT_HASH})
 
 # libutil.a library
 file(GLOB LIB_SOURCES libutil/src/*.F90)
