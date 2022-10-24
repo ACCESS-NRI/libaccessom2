@@ -7,3 +7,4 @@
 [submodule "oasis3-mct"]
 	path = oasis3-mct
 	url = https://github.com/ACCESS-NRI/oasis3-mct.git
+	branch = improve-build-system
