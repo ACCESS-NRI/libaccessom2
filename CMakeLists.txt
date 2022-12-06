@@ -36,12 +36,6 @@ else()
   endif()
 endif()
 
-find_package(PkgConfig REQUIRED)
-pkg_check_modules(NETCDF REQUIRED IMPORTED_TARGET "netcdf-fortran")
-message("---- NETCDF_INCLUDEDIR: " ${NETCDF_INCLUDEDIR})
-message("---- NETCDF_INCLUDE_DIRS: " ${NETCDF_INCLUDE_DIRS})
-include_directories(${NETCDF_INCLUDEDIR})
-
 # compiler flags for gfortran
 if(CMAKE_Fortran_COMPILER_ID MATCHES GNU)
   set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -std=f2008 -Wall -fdefault-real-8 -ffpe-trap=invalid,zero,overflow")
@@ -56,59 +50,51 @@ if(CMAKE_Fortran_COMPILER_ID MATCHES Intel)
   set(CMAKE_Fortran_FLAGS_RELEASE "-g3 -O2 -axCORE-AVX2 -debug all -check none -qopt-report=5 -qopt-report-annotate")
 endif()
 
-# get external projects
-include(ExternalProject)
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(NETCDF REQUIRED IMPORTED_TARGET "netcdf-fortran")
+message("---- NETCDF_INCLUDEDIR: " ${NETCDF_INCLUDEDIR})
+message("---- NETCDF_INCLUDE_DIRS: " ${NETCDF_INCLUDE_DIRS})
+message("---- FOUND: " ${NETCDF_FOUND})
+message("---- LIBRARIES: " ${NETCDF_LIBRARIES})
+message("---- LINK_LIBRARIES: " ${NETCDF_LINK_LIBRARIES})
+message("---- LIBRARY_DIRS: " ${NETCDF_LIBRARY_DIRS})
+message("---- LDFLAGS: " ${NETCDF_LDFLAGS})
+message("---- LDFLAGS_OTHER: " ${NETCDF_LDFLAGS_OTHER})
+message("---- INCLUDE_DIRS: " ${NETCDF_INCLUDE_DIRS})
+message("---- CFLAGS: " ${NETCDF_CFLAGS})
+message("---- CFLAGS_OTHER: " ${NETCDF_CFLAGS_OTHER})
+include_directories(${NETCDF_INCLUDEDIR})
 
-# datetime-fortran external project
-# We use a forked version because of this behaviour:
+# Back to using the upstream version as the the bug is apparently not
+# reproducible since intel-compiler/2019.5.281 and intel-compiler/2020.0.166:
 # https://github.com/wavebitscientific/datetime-fortran/issues/51
-ExternalProject_Add(datetime-fortran
-    DOWNLOAD_COMMAND ""
-    SOURCE_DIR ${CMAKE_SOURCE_DIR}/datetime-fortran
-    INSTALL_COMMAND cmake -E echo "Skipping datetime-fortran install step."
-)
-ExternalProject_Get_property(datetime-fortran BINARY_DIR)
-include_directories(${BINARY_DIR}/include)
-add_library(datetime STATIC IMPORTED)
-add_dependencies(datetime datetime-fortran)
-set_property(TARGET datetime PROPERTY IMPORTED_LOCATION ${BINARY_DIR}/lib/libdatetime.a)
+pkg_check_modules(DATETIME REQUIRED IMPORTED_TARGET "datetime-fortran")
+include_directories(${DATETIME_INCLUDE_DIRS})
+message("DATETIME_INCLUDEDIR: " ${DATETIME_INCLUDEDIR})
+message("DATETIME_INCLUDE_DIRS: " ${DATETIME_INCLUDE_DIRS})
 
-# json-fortran external project
-ExternalProject_Add(json-fortran
-    DOWNLOAD_COMMAND ""
-    SOURCE_DIR ${CMAKE_SOURCE_DIR}/json-fortran
-    INSTALL_COMMAND cmake -E echo "Skipping json-fortran install step."
-)
-ExternalProject_Get_property(json-fortran BINARY_DIR)
-include_directories(${BINARY_DIR}/include)
-add_library(jsonfortran STATIC IMPORTED)
-add_dependencies(jsonfortran json-fortran)
-set_property(TARGET jsonfortran PROPERTY IMPORTED_LOCATION ${BINARY_DIR}/lib/libjsonfortran.a)
+pkg_check_modules(JSONFORTRAN REQUIRED IMPORTED_TARGET "json-fortran")
+include_directories(${JSONFORTRAN_INCLUDE_DIRS})
+message("JSONFORTRAN_INCLUDEDIR: " ${JSONFORTRAN_INCLUDEDIR})
+message("JSONFORTRAN_INCLUDE_DIRS: " ${JSONFORTRAN_INCLUDE_DIRS})
 
-# oasis external project
-ExternalProject_Add(oasis3-mct
-    DOWNLOAD_COMMAND ""
-    SOURCE_DIR ${CMAKE_SOURCE_DIR}/oasis3-mct
-    CONFIGURE_COMMAND ""
-    BUILD_IN_SOURCE 1
-    BUILD_COMMAND ./build.sh
-    INSTALL_COMMAND cmake -E echo "Skipping oasis3-mct install step."
-)
-ExternalProject_Get_property(oasis3-mct BINARY_DIR)
-set(OASIS3_COMPILE_DIR ${BINARY_DIR}/compile_oa3-mct)
-include_directories(${OASIS3_COMPILE_DIR}/build/lib/psmile.MPI1/)
-add_library(mct STATIC IMPORTED)
-add_library(mpeu STATIC IMPORTED)
-add_library(psmile.MPI1 STATIC IMPORTED)
-add_library(scrip STATIC IMPORTED)
-add_dependencies(mct oasis3-mct)
-add_dependencies(mpeu oasis3-mct)
-add_dependencies(psmile.MPI1 oasis3-mct)
-add_dependencies(scrip oasis3-mct)
-set_property(TARGET mct PROPERTY IMPORTED_LOCATION ${OASIS3_COMPILE_DIR}/lib/libmct.a)
-set_property(TARGET mpeu PROPERTY IMPORTED_LOCATION ${OASIS3_COMPILE_DIR}/lib/libmpeu.a)
-set_property(TARGET psmile.MPI1 PROPERTY IMPORTED_LOCATION ${OASIS3_COMPILE_DIR}/lib/libpsmile.MPI1.a)
-set_property(TARGET scrip PROPERTY IMPORTED_LOCATION ${OASIS3_COMPILE_DIR}/lib/libscrip.a)
+pkg_check_modules(OASIS3MCT REQUIRED IMPORTED_TARGET "oasis3-mct")
+include_directories(${OASIS3MCT_INCLUDE_DIRS})
+message("OASIS3MCT_INCLUDEDIR: " ${OASIS3MCT_INCLUDEDIR})
+message("OASIS3MCT_INCLUDE_DIRS: " ${OASIS3MCT_INCLUDE_DIRS})
+
+pkg_check_modules(OASIS3MPEU REQUIRED IMPORTED_TARGET "oasis3-mpeu")
+
+pkg_check_modules(OASIS3PSMILE REQUIRED IMPORTED_TARGET "oasis3-psmile.MPI1")
+include_directories(${OASIS3PSMILE_INCLUDE_DIRS})
+message("OASIS3PSMILE_INCLUDEDIR: " ${OASIS3PSMILE_INCLUDEDIR})
+message("OASIS3PSMILE_INCLUDE_DIRS: " ${OASIS3PSMILE_INCLUDE_DIRS})
+
+pkg_check_modules(OASIS3SCRIP REQUIRED IMPORTED_TARGET "oasis3-scrip")
+include_directories(${OASIS3SCRIP_INCLUDE_DIRS})
+message("OASIS3SCRIP_INCLUDEDIR: " ${OASIS3SCRIP_INCLUDEDIR})
+message("OASIS3SCRIP_INCLUDE_DIRS: " ${OASIS3SCRIP_INCLUDE_DIRS})
+
 
 # Get the current working branch
 execute_process(
@@ -131,37 +117,30 @@ add_definitions("-DGIT_COMMIT_HASH='${GIT_COMMIT_HASH}'")
 message("---- GIT_COMMIT_HASH: " ${GIT_COMMIT_HASH})
 
 # libutil.a library
-file(GLOB LIB_SOURCES libutil/src/*.F90)
-add_library(util ${LIB_SOURCES})
-add_dependencies(util datetime oasis3-mct)
+file(GLOB LIBUTIL_SOURCES libutil/src/*.F90)
+add_library(util ${LIBUTIL_SOURCES})
 
 # libforcing.a library
-file(GLOB LIB_SOURCES libforcing/src/*.F90)
-add_library(forcing ${LIB_SOURCES})
-add_dependencies(forcing util jsonfortran)
+file(GLOB LIBFORCING_SOURCES libforcing/src/*.F90)
+add_library(forcing ${LIBFORCING_SOURCES})
+add_dependencies(forcing util PkgConfig::JSONFORTRAN PkgConfig::DATETIME)
 
 # libcouple.a library
-file(GLOB LIB_SOURCES libcouple/src/*.F90)
-add_library(couple ${LIB_SOURCES})
-add_dependencies(couple forcing util datetime oasis3-mct)
+file(GLOB LIBCOUPLE_SOURCES libcouple/src/*.F90)
+add_library(couple ${LIBCOUPLE_SOURCES})
+add_dependencies(couple forcing util PkgConfig::DATETIME PkgConfig::OASIS3PSMILE)
 
 # Join all of the above together to make libaccesom2
 # See https://stackoverflow.com/questions/37924383/combining-several-static-libraries-into-one-using-cmake
 set(LIBACCESSOM2 ${CMAKE_BINARY_DIR}/lib/libaccessom2.a)
 
 add_custom_target(combined
-        COMMAND ar -x $<TARGET_FILE:datetime>
-        COMMAND ar -x $<TARGET_FILE:jsonfortran>
-        COMMAND ar -x $<TARGET_FILE:mct>
-        COMMAND ar -x $<TARGET_FILE:mpeu>
-        COMMAND ar -x $<TARGET_FILE:psmile.MPI1>
-        COMMAND ar -x $<TARGET_FILE:scrip>
         COMMAND ar -x $<TARGET_FILE:util>
         COMMAND ar -x $<TARGET_FILE:forcing>
         COMMAND ar -x $<TARGET_FILE:couple>
         COMMAND ar -qcs ${LIBACCESSOM2} *.o
         WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
-        DEPENDS datetime jsonfortran mct mpeu psmile.MPI1 scrip util forcing couple
+        DEPENDS util forcing couple
         )
 
 add_library(accessom2 STATIC IMPORTED GLOBAL)
@@ -171,7 +150,7 @@ set_target_properties(accessom2 PROPERTIES IMPORTED_LOCATION ${LIBACCESSOM2})
 # libforcing test executable
 file(GLOB FORCING_TEST_SOURCES libforcing/test/*.F90)
 add_executable(forcing_test.exe ${FORCING_TEST_SOURCES})
-target_link_libraries(forcing_test.exe forcing util datetime jsonfortran PkgConfig::NETCDF)
+target_link_libraries(forcing_test.exe forcing util PkgConfig::DATETIME PkgConfig::JSONFORTRAN PkgConfig::NETCDF)
 set_target_properties(forcing_test.exe PROPERTIES
                       RUNTIME_OUTPUT_DIRECTORY libforcing/test/
 )
@@ -179,15 +158,15 @@ set_target_properties(forcing_test.exe PROPERTIES
 # yatm executable
 file(GLOB ATM_SOURCES atm/src/*.F90)
 add_executable(yatm.exe ${ATM_SOURCES})
-target_link_libraries(yatm.exe accessom2 PkgConfig::NETCDF ${MPI_Fortran_LIBRARIES})
+target_link_libraries(yatm.exe accessom2 PkgConfig::DATETIME PkgConfig::JSONFORTRAN PkgConfig::OASIS3PSMILE PkgConfig::OASIS3MCT PkgConfig::OASIS3MPEU PkgConfig::OASIS3SCRIP PkgConfig::NETCDF ${MPI_Fortran_LIBRARIES})
 
 # ice stub executable
 file(GLOB ICE_STUB_SOURCES ice_stub/src/*.F90)
 add_executable(ice_stub.exe ${ICE_STUB_SOURCES})
-target_link_libraries(ice_stub.exe accessom2 PkgConfig::NETCDF ${MPI_Fortran_LIBRARIES})
+target_link_libraries(ice_stub.exe accessom2 PkgConfig::DATETIME PkgConfig::OASIS3PSMILE PkgConfig::OASIS3MCT PkgConfig::OASIS3MPEU PkgConfig::OASIS3SCRIP PkgConfig::NETCDF ${MPI_Fortran_LIBRARIES})
 
 # ocean stub executable
 file(GLOB OCEAN_STUB_SOURCES ocean_stub/src/*.F90)
 add_executable(ocean_stub.exe ${OCEAN_STUB_SOURCES})
-target_link_libraries(ocean_stub.exe accessom2 PkgConfig::NETCDF ${MPI_Fortran_LIBRARIES})
+target_link_libraries(ocean_stub.exe accessom2 PkgConfig::DATETIME PkgConfig::OASIS3PSMILE PkgConfig::OASIS3MCT PkgConfig::OASIS3MPEU PkgConfig::OASIS3SCRIP PkgConfig::NETCDF ${MPI_Fortran_LIBRARIES})
 
