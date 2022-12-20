@@ -1,6 +1,9 @@
 # https://cmake.org/cmake/help/v3.6/module/FindPkgConfig.html
 cmake_minimum_required(VERSION 3.6 FATAL_ERROR)
-project(matm Fortran)
+project(yatm VERSION 2.0.202212 LANGUAGES Fortran)
+
+message("---- PROJECT_VERSION: " '${PROJECT_VERSION}')
+add_definitions( -DCMAKE_YATM_VERSION='${PROJECT_VERSION}' )
 
 # set output paths for modules, archives, and executables
 set(CMAKE_Fortran_MODULE_DIRECTORY ${PROJECT_BINARY_DIR}/include)
@@ -95,26 +98,6 @@ include_directories(${OASIS3SCRIP_INCLUDE_DIRS})
 message("OASIS3SCRIP_INCLUDEDIR: " ${OASIS3SCRIP_INCLUDEDIR})
 message("OASIS3SCRIP_INCLUDE_DIRS: " ${OASIS3SCRIP_INCLUDE_DIRS})
 
-
-# Get the current working branch
-execute_process(
-  COMMAND git config --get remote.origin.url
-  WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
-  OUTPUT_VARIABLE GIT_URL
-  OUTPUT_STRIP_TRAILING_WHITESPACE
-)
-add_definitions("-DGIT_URL='${GIT_URL}'")
-message("---- GIT_URL: " ${GIT_URL})
-
-# Get the latest abbreviated commit hash of the working branch
-execute_process(
-  COMMAND git rev-parse HEAD
-  WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
-  OUTPUT_VARIABLE GIT_COMMIT_HASH
-  OUTPUT_STRIP_TRAILING_WHITESPACE
-)
-add_definitions("-DGIT_COMMIT_HASH='${GIT_COMMIT_HASH}'")
-message("---- GIT_COMMIT_HASH: " ${GIT_COMMIT_HASH})
 
 # libutil.a library
 file(GLOB LIBUTIL_SOURCES libutil/src/*.F90)

@@ -8,7 +8,7 @@ program ice
     use restart_mod, only : restart_type => restart
     use mod_oasis, only : OASIS_IN, OASIS_OUT
     use accessom2_mod, only : accessom2_type => accessom2
-    use ice_version_mod, only : ICE_STUB_COMMIT_HASH
+    use ice_version_mod, only : ICE_STUB_VERSION
 
     implicit none
 
@@ -39,7 +39,7 @@ program ice
                        to_ocean_field_names, ice_grid_file, ice_mask_file
     accessom2_config_dir = './'
 
-    print *, ICE_STUB_COMMIT_HASH
+    print *, ICE_STUB_VERSION
 
     ! Read namelist which includes information
     ! model resolution and names and direction of coupling fields.

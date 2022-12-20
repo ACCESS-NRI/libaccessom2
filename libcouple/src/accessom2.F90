@@ -10,7 +10,7 @@ use datetime_module, only : date2num, num2date
 use error_handler, only : assert
 use coupler_mod, only : coupler_type => coupler
 use logger_mod, only : logger_type => logger, LOG_ERROR
-use libaccessom2_version_mod, only : LIBACCESSOM2_COMMIT_HASH
+use libaccessom2_version_mod, only : LIBACCESSOM2_VERSION
 
 implicit none
 private
@@ -264,7 +264,7 @@ endsubroutine accessom2_set_cpl_field_counts
 subroutine accessom2_print_version_info(self)
     class(accessom2), intent(inout) :: self
 
-    print*, trim(self%model_name)//": "//LIBACCESSOM2_COMMIT_HASH
+    print*, trim(self%model_name)//": "//LIBACCESSOM2_VERSION
 
 endsubroutine accessom2_print_version_info
 
