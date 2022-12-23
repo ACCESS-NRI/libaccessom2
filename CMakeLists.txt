@@ -1,6 +1,12 @@
 # https://cmake.org/cmake/help/v3.6/module/FindPkgConfig.html
-cmake_minimum_required(VERSION 3.6 FATAL_ERROR)
-project(yatm VERSION 2.0.202212 LANGUAGES Fortran)
+# 3.11: add_library() doesn't require dummy source
+# 3.12: target_link_libraries() supports OBJECT targets
+cmake_minimum_required(VERSION 3.12 FATAL_ERROR)
+project(yatm
+	DESCRIPTION "libaccessom2 is a library that is linked into all of the ACCESS-OM2 component models, including YATM, CICE and MOM. libaccessom2 provides functionality used by all models as well as providing a interface to inter-model communication and synchronisation tasks."
+	VERSION 2.0.202212
+	LANGUAGES Fortran
+)
 
 message("---- PROJECT_VERSION: " '${PROJECT_VERSION}')
 add_definitions( -DCMAKE_YATM_VERSION='${PROJECT_VERSION}' )
@@ -53,85 +59,48 @@ endif()
 
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(NETCDF REQUIRED IMPORTED_TARGET "netcdf-fortran")
-message("---- NETCDF_INCLUDEDIR: " ${NETCDF_INCLUDEDIR})
-message("---- NETCDF_INCLUDE_DIRS: " ${NETCDF_INCLUDE_DIRS})
-message("---- FOUND: " ${NETCDF_FOUND})
-message("---- LIBRARIES: " ${NETCDF_LIBRARIES})
-message("---- LINK_LIBRARIES: " ${NETCDF_LINK_LIBRARIES})
-message("---- LIBRARY_DIRS: " ${NETCDF_LIBRARY_DIRS})
-message("---- LDFLAGS: " ${NETCDF_LDFLAGS})
-message("---- LDFLAGS_OTHER: " ${NETCDF_LDFLAGS_OTHER})
-message("---- INCLUDE_DIRS: " ${NETCDF_INCLUDE_DIRS})
-message("---- CFLAGS: " ${NETCDF_CFLAGS})
-message("---- CFLAGS_OTHER: " ${NETCDF_CFLAGS_OTHER})
-include_directories(${NETCDF_INCLUDEDIR})
-
 # Back to using the upstream version as the the bug is apparently not
 # reproducible since intel-compiler/2019.5.281 and intel-compiler/2020.0.166:
 # https://github.com/wavebitscientific/datetime-fortran/issues/51
 pkg_check_modules(DATETIME REQUIRED IMPORTED_TARGET "datetime-fortran")
-include_directories(${DATETIME_INCLUDE_DIRS})
-message("DATETIME_INCLUDEDIR: " ${DATETIME_INCLUDEDIR})
-message("DATETIME_INCLUDE_DIRS: " ${DATETIME_INCLUDE_DIRS})
-
 pkg_check_modules(JSONFORTRAN REQUIRED IMPORTED_TARGET "json-fortran")
-include_directories(${JSONFORTRAN_INCLUDE_DIRS})
-message("JSONFORTRAN_INCLUDEDIR: " ${JSONFORTRAN_INCLUDEDIR})
-message("JSONFORTRAN_INCLUDE_DIRS: " ${JSONFORTRAN_INCLUDE_DIRS})
-
 pkg_check_modules(OASIS3MCT REQUIRED IMPORTED_TARGET "oasis3-mct")
-include_directories(${OASIS3MCT_INCLUDE_DIRS})
-message("OASIS3MCT_INCLUDEDIR: " ${OASIS3MCT_INCLUDEDIR})
-message("OASIS3MCT_INCLUDE_DIRS: " ${OASIS3MCT_INCLUDE_DIRS})
-
 pkg_check_modules(OASIS3MPEU REQUIRED IMPORTED_TARGET "oasis3-mpeu")
-
 pkg_check_modules(OASIS3PSMILE REQUIRED IMPORTED_TARGET "oasis3-psmile.MPI1")
-include_directories(${OASIS3PSMILE_INCLUDE_DIRS})
-message("OASIS3PSMILE_INCLUDEDIR: " ${OASIS3PSMILE_INCLUDEDIR})
-message("OASIS3PSMILE_INCLUDE_DIRS: " ${OASIS3PSMILE_INCLUDE_DIRS})
-
 pkg_check_modules(OASIS3SCRIP REQUIRED IMPORTED_TARGET "oasis3-scrip")
-include_directories(${OASIS3SCRIP_INCLUDE_DIRS})
-message("OASIS3SCRIP_INCLUDEDIR: " ${OASIS3SCRIP_INCLUDEDIR})
-message("OASIS3SCRIP_INCLUDE_DIRS: " ${OASIS3SCRIP_INCLUDE_DIRS})
 
+# Workaround for compiler error:
+# f951: Fatal Error: Cannot delete temporary module file 'include/error_handler.mod0': No such file or directory
+# e.g. https://github.com/Unidata/netcdf-fortran/issues/64
+add_library(util STATIC OBJECT)
+target_sources(util PRIVATE
+		libutil/src/error_handler.F90
+		libutil/src/logger.F90
+		libutil/src/simple_timer.F90
+		libutil/src/util.F90
+)
+target_link_libraries(util)
 
-# libutil.a library
-file(GLOB LIBUTIL_SOURCES libutil/src/*.F90)
-add_library(util ${LIBUTIL_SOURCES})
+add_library(accessom2 STATIC)
+target_sources(accessom2 PRIVATE
+		libforcing/src/error_handler.F90
+		libforcing/src/forcing_config.F90
+		libforcing/src/forcing_field.F90
+		libforcing/src/forcing_perturbation.F90
+		libforcing/src/ncvar.F90
+		libforcing/src/util.F90
+		libcouple/src/accessom2.F90
+		libcouple/src/coupler.F90
+		libcouple/src/libaccessom2_version.F90
+		libcouple/src/restart.F90
+)
+target_link_libraries(accessom2 util PkgConfig::OASIS3PSMILE)
 
-# libforcing.a library
-file(GLOB LIBFORCING_SOURCES libforcing/src/*.F90)
-add_library(forcing ${LIBFORCING_SOURCES})
-add_dependencies(forcing util PkgConfig::JSONFORTRAN PkgConfig::DATETIME)
-
-# libcouple.a library
-file(GLOB LIBCOUPLE_SOURCES libcouple/src/*.F90)
-add_library(couple ${LIBCOUPLE_SOURCES})
-add_dependencies(couple forcing util PkgConfig::DATETIME PkgConfig::OASIS3PSMILE)
-
-# Join all of the above together to make libaccesom2
-# See https://stackoverflow.com/questions/37924383/combining-several-static-libraries-into-one-using-cmake
-set(LIBACCESSOM2 ${CMAKE_BINARY_DIR}/lib/libaccessom2.a)
-
-add_custom_target(combined
-        COMMAND ar -x $<TARGET_FILE:util>
-        COMMAND ar -x $<TARGET_FILE:forcing>
-        COMMAND ar -x $<TARGET_FILE:couple>
-        COMMAND ar -qcs ${LIBACCESSOM2} *.o
-        WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
-        DEPENDS util forcing couple
-        )
-
-add_library(accessom2 STATIC IMPORTED GLOBAL)
-add_dependencies(accessom2 combined)
-set_target_properties(accessom2 PROPERTIES IMPORTED_LOCATION ${LIBACCESSOM2})
 
 # libforcing test executable
 file(GLOB FORCING_TEST_SOURCES libforcing/test/*.F90)
 add_executable(forcing_test.exe ${FORCING_TEST_SOURCES})
-target_link_libraries(forcing_test.exe forcing util PkgConfig::DATETIME PkgConfig::JSONFORTRAN PkgConfig::NETCDF)
+target_link_libraries(forcing_test.exe accessom2 PkgConfig::DATETIME PkgConfig::JSONFORTRAN PkgConfig::NETCDF)
 set_target_properties(forcing_test.exe PROPERTIES
                       RUNTIME_OUTPUT_DIRECTORY libforcing/test/
 )
@@ -150,4 +119,15 @@ target_link_libraries(ice_stub.exe accessom2 PkgConfig::DATETIME PkgConfig::OASI
 file(GLOB OCEAN_STUB_SOURCES ocean_stub/src/*.F90)
 add_executable(ocean_stub.exe ${OCEAN_STUB_SOURCES})
 target_link_libraries(ocean_stub.exe accessom2 PkgConfig::DATETIME PkgConfig::OASIS3PSMILE PkgConfig::OASIS3MCT PkgConfig::OASIS3MPEU PkgConfig::OASIS3SCRIP PkgConfig::NETCDF ${MPI_Fortran_LIBRARIES})
+
+configure_file(libaccessom2.pc.in lib/pkgconfig/libaccessom2.pc @ONLY)
+
+
+install(TARGETS accessom2)
+install(TARGETS yatm.exe)
+install(TARGETS ice_stub.exe)
+install(TARGETS ocean_stub.exe)
+# Fortran mod files
+install(DIRECTORY ${CMAKE_BINARY_DIR}/include/ TYPE INCLUDE)
+install(FILES ${CMAKE_BINARY_DIR}/lib/pkgconfig/libaccessom2.pc DESTINATION lib/pkgconfig)
 
