@@ -1,7 +1,7 @@
 # https://cmake.org/cmake/help/v3.6/module/FindPkgConfig.html
 # 3.11: add_library() doesn't require dummy source
 # 3.12: target_link_libraries() supports OBJECT targets
-cmake_minimum_required(VERSION 3.12 FATAL_ERROR)
+cmake_minimum_required(VERSION 3.12)
 project(yatm
 	DESCRIPTION "libaccessom2 is a library that is linked into all of the ACCESS-OM2 component models, including YATM, CICE and MOM. libaccessom2 provides functionality used by all models as well as providing a interface to inter-model communication and synchronisation tasks."
 	VERSION 2.0.202212
@@ -12,7 +12,7 @@ message("---- PROJECT_VERSION: " '${PROJECT_VERSION}')
 add_definitions( -DCMAKE_YATM_VERSION='${PROJECT_VERSION}' )
 
 # set output paths for modules, archives, and executables
-set(CMAKE_Fortran_MODULE_DIRECTORY ${PROJECT_BINARY_DIR}/include)
+set(CMAKE_Fortran_MODULE_DIRECTORY ${CMAKE_BINARY_DIR}/include)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
@@ -24,10 +24,12 @@ if(NOT CMAKE_BUILD_TYPE)
 endif()
 
 cmake_host_system_information(RESULT my_fqdn QUERY FQDN)
-message("---- Detected FQDN: " ${my_fqdn})
+message("---- FQDN: " ${my_fqdn})
 cmake_host_system_information(RESULT my_ncores QUERY NUMBER_OF_LOGICAL_CORES)
-message("---- Detected NUMBER_OF_LOGICAL_CORES: " ${my_ncores})
+message("---- NUMBER_OF_LOGICAL_CORES: " ${my_ncores})
 
+# https://cmake.org/cmake/help/latest/command/find_package.html
+# "New in version 3.24: All calls to find_package() (even in Module mode) first look for a config package file in the CMAKE_FIND_PACKAGE_REDIRECTS_DIR directory."
 if (MPIFORT_EXE STREQUAL "MPIFORT_EXE-NOTFOUND")
   message("mpifort not found, searching for MPI libraries" )
   find_package(MPI)
@@ -97,28 +99,68 @@ target_sources(accessom2 PRIVATE
 target_link_libraries(accessom2 util PkgConfig::OASIS3PSMILE)
 
 
-# libforcing test executable
-file(GLOB FORCING_TEST_SOURCES libforcing/test/*.F90)
-add_executable(forcing_test.exe ${FORCING_TEST_SOURCES})
-target_link_libraries(forcing_test.exe accessom2 PkgConfig::DATETIME PkgConfig::JSONFORTRAN PkgConfig::NETCDF)
+add_executable(forcing_test.exe libforcing/test/forcing_test.F90)
+target_link_libraries(forcing_test.exe
+			accessom2
+			PkgConfig::DATETIME
+			PkgConfig::JSONFORTRAN
+			PkgConfig::NETCDF
+)
 set_target_properties(forcing_test.exe PROPERTIES
                       RUNTIME_OUTPUT_DIRECTORY libforcing/test/
 )
 
-# yatm executable
-file(GLOB ATM_SOURCES atm/src/*.F90)
-add_executable(yatm.exe ${ATM_SOURCES})
-target_link_libraries(yatm.exe accessom2 PkgConfig::DATETIME PkgConfig::JSONFORTRAN PkgConfig::OASIS3PSMILE PkgConfig::OASIS3MCT PkgConfig::OASIS3MPEU PkgConfig::OASIS3SCRIP PkgConfig::NETCDF ${MPI_Fortran_LIBRARIES})
+add_executable(yatm.exe
+		atm/src/atm.F90
+		atm/src/ice_grid_proxy.F90
+		atm/src/kdrunoff_mod.F90
+		atm/src/kdtree2_module.F90
+		atm/src/remap_runoff_mod.F90
+		atm/src/runoff.F90
+		atm/src/yatm_version.F90
+)
+target_link_libraries(yatm.exe
+			accessom2
+			PkgConfig::DATETIME
+			PkgConfig::JSONFORTRAN
+			PkgConfig::OASIS3PSMILE
+			PkgConfig::OASIS3MCT
+			PkgConfig::OASIS3MPEU
+			PkgConfig::OASIS3SCRIP
+			PkgConfig::NETCDF
+			${MPI_Fortran_LIBRARIES}
+)
 
-# ice stub executable
-file(GLOB ICE_STUB_SOURCES ice_stub/src/*.F90)
-add_executable(ice_stub.exe ${ICE_STUB_SOURCES})
-target_link_libraries(ice_stub.exe accessom2 PkgConfig::DATETIME PkgConfig::OASIS3PSMILE PkgConfig::OASIS3MCT PkgConfig::OASIS3MPEU PkgConfig::OASIS3SCRIP PkgConfig::NETCDF ${MPI_Fortran_LIBRARIES})
+add_executable(ice_stub.exe
+		ice_stub/src/ice.F90
+		ice_stub/src/ice_grid.F90
+		ice_stub/src/ice_version.F90
+)
+target_link_libraries(ice_stub.exe
+			accessom2
+			PkgConfig::DATETIME
+			PkgConfig::OASIS3PSMILE
+			PkgConfig::OASIS3MCT
+			PkgConfig::OASIS3MPEU
+			PkgConfig::OASIS3SCRIP
+			PkgConfig::NETCDF
+			${MPI_Fortran_LIBRARIES}
+)
 
-# ocean stub executable
-file(GLOB OCEAN_STUB_SOURCES ocean_stub/src/*.F90)
-add_executable(ocean_stub.exe ${OCEAN_STUB_SOURCES})
-target_link_libraries(ocean_stub.exe accessom2 PkgConfig::DATETIME PkgConfig::OASIS3PSMILE PkgConfig::OASIS3MCT PkgConfig::OASIS3MPEU PkgConfig::OASIS3SCRIP PkgConfig::NETCDF ${MPI_Fortran_LIBRARIES})
+add_executable(ocean_stub.exe
+		ocean_stub/src/ocean.F90
+		ocean_stub/src/ocean_version.F90
+)
+target_link_libraries(ocean_stub.exe
+			accessom2
+			PkgConfig::DATETIME
+			PkgConfig::OASIS3PSMILE
+			PkgConfig::OASIS3MCT
+			PkgConfig::OASIS3MPEU
+			PkgConfig::OASIS3SCRIP
+			PkgConfig::NETCDF
+			${MPI_Fortran_LIBRARIES}
+)
 
 configure_file(libaccessom2.pc.in lib/pkgconfig/libaccessom2.pc @ONLY)
 
@@ -129,5 +171,7 @@ install(TARGETS ice_stub.exe)
 install(TARGETS ocean_stub.exe)
 # Fortran mod files
 install(DIRECTORY ${CMAKE_BINARY_DIR}/include/ TYPE INCLUDE)
-install(FILES ${CMAKE_BINARY_DIR}/lib/pkgconfig/libaccessom2.pc DESTINATION lib/pkgconfig)
+install(FILES ${CMAKE_BINARY_DIR}/lib/pkgconfig/libaccessom2.pc
+	DESTINATION lib/pkgconfig
+)
 
