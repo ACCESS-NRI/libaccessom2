@@ -35,6 +35,7 @@ message("---- MPI_Fortran_COMPILER: " ${MPI_Fortran_COMPILER})
 set(CMAKE_Fortran_COMPILER ${MPI_Fortran_COMPILER})
 message("---- CMAKE_Fortran_COMPILER: " ${CMAKE_Fortran_COMPILER})
 
+# TODO: Audit compiler flags. Consider if some should move to Spack package.py
 # compiler flags for gfortran
 if(CMAKE_Fortran_COMPILER_ID MATCHES GNU)
   set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -std=f2008 -Wall -fdefault-real-8 -ffpe-trap=invalid,zero,overflow")
