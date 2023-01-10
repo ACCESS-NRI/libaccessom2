@@ -30,20 +30,10 @@ message("---- NUMBER_OF_LOGICAL_CORES: " ${my_ncores})
 
 # https://cmake.org/cmake/help/latest/command/find_package.html
 # "New in version 3.24: All calls to find_package() (even in Module mode) first look for a config package file in the CMAKE_FIND_PACKAGE_REDIRECTS_DIR directory."
-if (MPIFORT_EXE STREQUAL "MPIFORT_EXE-NOTFOUND")
-  message("mpifort not found, searching for MPI libraries" )
-  find_package(MPI)
-else()
-  message("mpifort executable found: " ${MPIFORT_EXE})
-  message("Will assume system MPI implementation is sound. Remove mpifort from PATH to automatically configure MPI")
-  if (CMAKE_FC_COMPILER STREQUAL "scorep-mpif90")
-    set(MPI_FORTRAN_COMPILER scorep-mpif90)
-    set(CMAKE_Fortran_COMPILER scorep-mpif90)
-  else()
-    set(MPI_FORTRAN_COMPILER mpifort)
-    set(CMAKE_Fortran_COMPILER mpifort)
-  endif()
-endif()
+find_package(MPI)
+message("---- MPI_Fortran_COMPILER: " ${MPI_Fortran_COMPILER})
+set(CMAKE_Fortran_COMPILER ${MPI_Fortran_COMPILER})
+message("---- CMAKE_Fortran_COMPILER: " ${CMAKE_Fortran_COMPILER})
 
 # compiler flags for gfortran
 if(CMAKE_Fortran_COMPILER_ID MATCHES GNU)
@@ -128,7 +118,7 @@ target_link_libraries(yatm.exe
 			PkgConfig::OASIS3MPEU
 			PkgConfig::OASIS3SCRIP
 			PkgConfig::NETCDF
-			${MPI_Fortran_LIBRARIES}
+			MPI::MPI_Fortran
 )
 
 add_executable(ice_stub.exe
@@ -144,7 +134,7 @@ target_link_libraries(ice_stub.exe
 			PkgConfig::OASIS3MPEU
 			PkgConfig::OASIS3SCRIP
 			PkgConfig::NETCDF
-			${MPI_Fortran_LIBRARIES}
+			MPI::MPI_Fortran
 )
 
 add_executable(ocean_stub.exe
@@ -159,7 +149,7 @@ target_link_libraries(ocean_stub.exe
 			PkgConfig::OASIS3MPEU
 			PkgConfig::OASIS3SCRIP
 			PkgConfig::NETCDF
-			${MPI_Fortran_LIBRARIES}
+			MPI::MPI_Fortran
 )
 
 configure_file(libaccessom2.pc.in lib/pkgconfig/libaccessom2.pc @ONLY)
