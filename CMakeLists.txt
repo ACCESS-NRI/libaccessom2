@@ -1,7 +1,8 @@
 # https://cmake.org/cmake/help/v3.6/module/FindPkgConfig.html
 # 3.11: add_library() doesn't require dummy source
 # 3.12: target_link_libraries() supports OBJECT targets
-cmake_minimum_required(VERSION 3.12)
+# 3.20: cmake_path()
+cmake_minimum_required(VERSION 3.20)
 project(yatm
 	DESCRIPTION "libaccessom2 is a library that is linked into all of the ACCESS-OM2 component models, including YATM, CICE and MOM. libaccessom2 provides functionality used by all models as well as providing a interface to inter-model communication and synchronisation tasks."
 	VERSION 2.0.202212
@@ -12,10 +13,10 @@ message("---- PROJECT_VERSION: " '${PROJECT_VERSION}')
 add_definitions( -DCMAKE_YATM_VERSION='${PROJECT_VERSION}' )
 
 # set output paths for modules, archives, and executables
-set(CMAKE_Fortran_MODULE_DIRECTORY ${CMAKE_BINARY_DIR}/include)
-set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
-set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
+cmake_path(APPEND CMAKE_Fortran_MODULE_DIRECTORY ${CMAKE_BINARY_DIR} "include")
+cmake_path(APPEND CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR} "lib")
+cmake_path(APPEND CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR} "lib")
+cmake_path(APPEND CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR} "bin")
 
 # if build type not specified, default to release
 # set(CMAKE_BUILD_TYPE "Debug")
@@ -153,16 +154,17 @@ target_link_libraries(ocean_stub.exe
 			MPI::MPI_Fortran
 )
 
-configure_file(libaccessom2.pc.in lib/pkgconfig/libaccessom2.pc @ONLY)
+include(GNUInstallDirs)
+cmake_path(APPEND PKGCONFIGFILE
+		${CMAKE_LIBRARY_OUTPUT_DIRECTORY} "pkgconfig" "libaccessom2.pc")
+cmake_path(APPEND INSTALL_PKGCONFIGDIR ${CMAKE_INSTALL_LIBDIR} "pkgconfig")
+configure_file(libaccessom2.pc.in ${PKGCONFIGFILE} @ONLY)
 
 
 install(TARGETS accessom2)
 install(TARGETS yatm.exe)
 install(TARGETS ice_stub.exe)
 install(TARGETS ocean_stub.exe)
-# Fortran mod files
-install(DIRECTORY ${CMAKE_BINARY_DIR}/include/ TYPE INCLUDE)
-install(FILES ${CMAKE_BINARY_DIR}/lib/pkgconfig/libaccessom2.pc
-	DESTINATION lib/pkgconfig
-)
-
+# Fortran mod files (https://gitlab.kitware.com/cmake/cmake/-/issues/19608)
+install(DIRECTORY ${CMAKE_Fortran_MODULE_DIRECTORY}/ TYPE INCLUDE)
+install(FILES ${PKGCONFIGFILE} DESTINATION ${INSTALL_PKGCONFIGDIR})
