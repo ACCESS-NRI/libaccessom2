@@ -88,8 +88,10 @@ target_sources(accessom2 PRIVATE
 		libcouple/src/libaccessom2_version.F90
 		libcouple/src/restart.F90
 )
-target_link_libraries(accessom2 util PkgConfig::OASIS3PSMILE)
-
+target_link_libraries(accessom2 PUBLIC
+			util
+			PkgConfig::DATETIME
+			PkgConfig::OASIS3PSMILE)
 
 add_executable(forcing_test.exe libforcing/test/forcing_test.F90)
 target_link_libraries(forcing_test.exe
