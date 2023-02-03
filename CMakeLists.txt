@@ -122,7 +122,6 @@ target_link_libraries(yatm.exe
 			PkgConfig::OASIS3MPEU
 			PkgConfig::OASIS3SCRIP
 			PkgConfig::NETCDF
-			MPI::MPI_Fortran
 )
 
 add_executable(ice_stub.exe
@@ -138,7 +137,6 @@ target_link_libraries(ice_stub.exe
 			PkgConfig::OASIS3MPEU
 			PkgConfig::OASIS3SCRIP
 			PkgConfig::NETCDF
-			MPI::MPI_Fortran
 )
 
 add_executable(ocean_stub.exe
@@ -153,7 +151,6 @@ target_link_libraries(ocean_stub.exe
 			PkgConfig::OASIS3MPEU
 			PkgConfig::OASIS3SCRIP
 			PkgConfig::NETCDF
-			MPI::MPI_Fortran
 )
 
 include(GNUInstallDirs)
