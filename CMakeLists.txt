@@ -31,7 +31,7 @@ message("---- NUMBER_OF_LOGICAL_CORES: " ${my_ncores})
 
 # https://cmake.org/cmake/help/latest/command/find_package.html
 # "New in version 3.24: All calls to find_package() (even in Module mode) first look for a config package file in the CMAKE_FIND_PACKAGE_REDIRECTS_DIR directory."
-find_package(MPI)
+find_package(MPI REQUIRED)
 message("---- MPI_Fortran_COMPILER: " ${MPI_Fortran_COMPILER})
 set(CMAKE_Fortran_COMPILER ${MPI_Fortran_COMPILER})
 message("---- CMAKE_Fortran_COMPILER: " ${CMAKE_Fortran_COMPILER})
