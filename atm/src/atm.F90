@@ -10,7 +10,7 @@ program atm
     use accessom2_mod, only : accessom2_type => accessom2
     use simple_timer_mod, only : simple_timer_type => simple_timer
     use logger_mod, only : LOG_INFO, LOG_DEBUG
-    use yatm_version_mod, only : YATM_COMMIT_HASH
+    use yatm_version_mod, only : YATM_VERSION
 
     implicit none
 
@@ -41,7 +41,7 @@ program atm
 
     namelist /atm_nml/ forcing_file, accessom2_config_dir
 
-    print *, YATM_COMMIT_HASH
+    print *, YATM_VERSION
 
     ! Read input namelist
     forcing_file = 'forcing.json'

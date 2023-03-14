@@ -1,14 +1,22 @@
 # https://cmake.org/cmake/help/v3.6/module/FindPkgConfig.html
-cmake_minimum_required(VERSION 3.6 FATAL_ERROR)
-project(matm Fortran)
+# 3.11: add_library() doesn't require dummy source
+# 3.12: target_link_libraries() supports OBJECT targets
+# 3.20: cmake_path()
+cmake_minimum_required(VERSION 3.20)
+project(yatm
+	DESCRIPTION "libaccessom2 is a library that is linked into all of the ACCESS-OM2 component models, including YATM, CICE and MOM. libaccessom2 provides functionality used by all models as well as providing a interface to inter-model communication and synchronisation tasks."
+	VERSION 2.0.202212
+	LANGUAGES Fortran
+)
+
+message("---- PROJECT_VERSION: " '${PROJECT_VERSION}')
+add_definitions( -DCMAKE_YATM_VERSION='${PROJECT_VERSION}' )
 
 # set output paths for modules, archives, and executables
-set(CMAKE_Fortran_MODULE_DIRECTORY ${PROJECT_BINARY_DIR}/include)
-set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
-set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
-
-list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake")
+cmake_path(APPEND CMAKE_Fortran_MODULE_DIRECTORY ${CMAKE_BINARY_DIR} "include")
+cmake_path(APPEND CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR} "lib")
+cmake_path(APPEND CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR} "lib")
+cmake_path(APPEND CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR} "bin")
 
 # if build type not specified, default to release
 # set(CMAKE_BUILD_TYPE "Debug")
@@ -17,31 +25,18 @@ if(NOT CMAKE_BUILD_TYPE)
 endif()
 
 cmake_host_system_information(RESULT my_fqdn QUERY FQDN)
-message("---- Detected FQDN: " ${my_fqdn})
+message("---- FQDN: " ${my_fqdn})
 cmake_host_system_information(RESULT my_ncores QUERY NUMBER_OF_LOGICAL_CORES)
-message("---- Detected NUMBER_OF_LOGICAL_CORES: " ${my_ncores})
+message("---- NUMBER_OF_LOGICAL_CORES: " ${my_ncores})
 
-if (MPIFORT_EXE STREQUAL "MPIFORT_EXE-NOTFOUND")
-  message("mpifort not found, searching for MPI libraries" )
-  find_package(MPI)
-else()
-  message("mpifort executable found: " ${MPIFORT_EXE})
-  message("Will assume system MPI implementation is sound. Remove mpifort from PATH to automatically configure MPI")
-  if (CMAKE_FC_COMPILER STREQUAL "scorep-mpif90")
-    set(MPI_FORTRAN_COMPILER scorep-mpif90)
-    set(CMAKE_Fortran_COMPILER scorep-mpif90)
-  else()
-    set(MPI_FORTRAN_COMPILER mpifort)
-    set(CMAKE_Fortran_COMPILER mpifort)
-  endif()
-endif()
+# https://cmake.org/cmake/help/latest/command/find_package.html
+# "New in version 3.24: All calls to find_package() (even in Module mode) first look for a config package file in the CMAKE_FIND_PACKAGE_REDIRECTS_DIR directory."
+find_package(MPI REQUIRED)
+message("---- MPI_Fortran_COMPILER: " ${MPI_Fortran_COMPILER})
+set(CMAKE_Fortran_COMPILER ${MPI_Fortran_COMPILER})
+message("---- CMAKE_Fortran_COMPILER: " ${CMAKE_Fortran_COMPILER})
 
-find_package(PkgConfig REQUIRED)
-pkg_check_modules(NETCDF REQUIRED IMPORTED_TARGET "netcdf-fortran")
-message("---- NETCDF_INCLUDEDIR: " ${NETCDF_INCLUDEDIR})
-message("---- NETCDF_INCLUDE_DIRS: " ${NETCDF_INCLUDE_DIRS})
-include_directories(${NETCDF_INCLUDEDIR})
-
+# TODO: Audit compiler flags. Consider if some should move to Spack package.py
 # compiler flags for gfortran
 if(CMAKE_Fortran_COMPILER_ID MATCHES GNU)
   set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -std=f2008 -Wall -fdefault-real-8 -ffpe-trap=invalid,zero,overflow")
@@ -56,138 +51,119 @@ if(CMAKE_Fortran_COMPILER_ID MATCHES Intel)
   set(CMAKE_Fortran_FLAGS_RELEASE "-g3 -O2 -axCORE-AVX2 -debug all -check none -qopt-report=5 -qopt-report-annotate")
 endif()
 
-# get external projects
-include(ExternalProject)
-
-# datetime-fortran external project
-# We use a forked version because of this behaviour:
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(NETCDF REQUIRED IMPORTED_TARGET "netcdf-fortran")
+# Back to using the upstream version as the the bug is apparently not
+# reproducible since intel-compiler/2019.5.281 and intel-compiler/2020.0.166:
 # https://github.com/wavebitscientific/datetime-fortran/issues/51
-ExternalProject_Add(datetime-fortran
-    DOWNLOAD_COMMAND ""
-    SOURCE_DIR ${CMAKE_SOURCE_DIR}/datetime-fortran
-    INSTALL_COMMAND cmake -E echo "Skipping datetime-fortran install step."
+pkg_check_modules(DATETIME REQUIRED IMPORTED_TARGET "datetime-fortran")
+pkg_check_modules(JSONFORTRAN REQUIRED IMPORTED_TARGET "json-fortran")
+pkg_check_modules(OASIS3MCT REQUIRED IMPORTED_TARGET "oasis3-mct")
+pkg_check_modules(OASIS3MPEU REQUIRED IMPORTED_TARGET "oasis3-mpeu")
+pkg_check_modules(OASIS3PSMILE REQUIRED IMPORTED_TARGET "oasis3-psmile.MPI1")
+pkg_check_modules(OASIS3SCRIP REQUIRED IMPORTED_TARGET "oasis3-scrip")
+
+# Workaround for compiler error:
+# f951: Fatal Error: Cannot delete temporary module file 'include/error_handler.mod0': No such file or directory
+# e.g. https://github.com/Unidata/netcdf-fortran/issues/64
+add_library(util STATIC OBJECT)
+target_sources(util PRIVATE
+		libutil/src/error_handler.F90
+		libutil/src/logger.F90
+		libutil/src/simple_timer.F90
+		libutil/src/util.F90
 )
-ExternalProject_Get_property(datetime-fortran BINARY_DIR)
-include_directories(${BINARY_DIR}/include)
-add_library(datetime STATIC IMPORTED)
-add_dependencies(datetime datetime-fortran)
-set_property(TARGET datetime PROPERTY IMPORTED_LOCATION ${BINARY_DIR}/lib/libdatetime.a)
+target_link_libraries(util)
 
-# json-fortran external project
-ExternalProject_Add(json-fortran
-    DOWNLOAD_COMMAND ""
-    SOURCE_DIR ${CMAKE_SOURCE_DIR}/json-fortran
-    INSTALL_COMMAND cmake -E echo "Skipping json-fortran install step."
+add_library(accessom2 STATIC)
+target_sources(accessom2 PRIVATE
+		libforcing/src/error_handler.F90
+		libforcing/src/forcing_config.F90
+		libforcing/src/forcing_field.F90
+		libforcing/src/forcing_perturbation.F90
+		libforcing/src/ncvar.F90
+		libforcing/src/util.F90
+		libcouple/src/accessom2.F90
+		libcouple/src/coupler.F90
+		libcouple/src/libaccessom2_version.F90
+		libcouple/src/restart.F90
 )
-ExternalProject_Get_property(json-fortran BINARY_DIR)
-include_directories(${BINARY_DIR}/include)
-add_library(jsonfortran STATIC IMPORTED)
-add_dependencies(jsonfortran json-fortran)
-set_property(TARGET jsonfortran PROPERTY IMPORTED_LOCATION ${BINARY_DIR}/lib/libjsonfortran.a)
+target_link_libraries(accessom2 PUBLIC
+			util
+			PkgConfig::DATETIME
+			PkgConfig::OASIS3PSMILE)
 
-# oasis external project
-ExternalProject_Add(oasis3-mct
-    DOWNLOAD_COMMAND ""
-    SOURCE_DIR ${CMAKE_SOURCE_DIR}/oasis3-mct
-    CONFIGURE_COMMAND ""
-    BUILD_IN_SOURCE 1
-    BUILD_COMMAND ./build.sh
-    INSTALL_COMMAND cmake -E echo "Skipping oasis3-mct install step."
+add_executable(forcing_test.exe libforcing/test/forcing_test.F90)
+target_link_libraries(forcing_test.exe
+			accessom2
+			PkgConfig::DATETIME
+			PkgConfig::JSONFORTRAN
+			PkgConfig::NETCDF
 )
-ExternalProject_Get_property(oasis3-mct BINARY_DIR)
-set(OASIS3_COMPILE_DIR ${BINARY_DIR}/compile_oa3-mct)
-include_directories(${OASIS3_COMPILE_DIR}/build/lib/psmile.MPI1/)
-add_library(mct STATIC IMPORTED)
-add_library(mpeu STATIC IMPORTED)
-add_library(psmile.MPI1 STATIC IMPORTED)
-add_library(scrip STATIC IMPORTED)
-add_dependencies(mct oasis3-mct)
-add_dependencies(mpeu oasis3-mct)
-add_dependencies(psmile.MPI1 oasis3-mct)
-add_dependencies(scrip oasis3-mct)
-set_property(TARGET mct PROPERTY IMPORTED_LOCATION ${OASIS3_COMPILE_DIR}/lib/libmct.a)
-set_property(TARGET mpeu PROPERTY IMPORTED_LOCATION ${OASIS3_COMPILE_DIR}/lib/libmpeu.a)
-set_property(TARGET psmile.MPI1 PROPERTY IMPORTED_LOCATION ${OASIS3_COMPILE_DIR}/lib/libpsmile.MPI1.a)
-set_property(TARGET scrip PROPERTY IMPORTED_LOCATION ${OASIS3_COMPILE_DIR}/lib/libscrip.a)
-
-# Get the current working branch
-execute_process(
-  COMMAND git config --get remote.origin.url
-  WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
-  OUTPUT_VARIABLE GIT_URL
-  OUTPUT_STRIP_TRAILING_WHITESPACE
-)
-add_definitions("-DGIT_URL='${GIT_URL}'")
-message("---- GIT_URL: " ${GIT_URL})
-
-# Get the latest abbreviated commit hash of the working branch
-execute_process(
-  COMMAND git rev-parse HEAD
-  WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
-  OUTPUT_VARIABLE GIT_COMMIT_HASH
-  OUTPUT_STRIP_TRAILING_WHITESPACE
-)
-add_definitions("-DGIT_COMMIT_HASH='${GIT_COMMIT_HASH}'")
-message("---- GIT_COMMIT_HASH: " ${GIT_COMMIT_HASH})
-
-# libutil.a library
-file(GLOB LIB_SOURCES libutil/src/*.F90)
-add_library(util ${LIB_SOURCES})
-add_dependencies(util datetime oasis3-mct)
-
-# libforcing.a library
-file(GLOB LIB_SOURCES libforcing/src/*.F90)
-add_library(forcing ${LIB_SOURCES})
-add_dependencies(forcing util jsonfortran)
-
-# libcouple.a library
-file(GLOB LIB_SOURCES libcouple/src/*.F90)
-add_library(couple ${LIB_SOURCES})
-add_dependencies(couple forcing util datetime oasis3-mct)
-
-# Join all of the above together to make libaccesom2
-# See https://stackoverflow.com/questions/37924383/combining-several-static-libraries-into-one-using-cmake
-set(LIBACCESSOM2 ${CMAKE_BINARY_DIR}/lib/libaccessom2.a)
-
-add_custom_target(combined
-        COMMAND ar -x $<TARGET_FILE:datetime>
-        COMMAND ar -x $<TARGET_FILE:jsonfortran>
-        COMMAND ar -x $<TARGET_FILE:mct>
-        COMMAND ar -x $<TARGET_FILE:mpeu>
-        COMMAND ar -x $<TARGET_FILE:psmile.MPI1>
-        COMMAND ar -x $<TARGET_FILE:scrip>
-        COMMAND ar -x $<TARGET_FILE:util>
-        COMMAND ar -x $<TARGET_FILE:forcing>
-        COMMAND ar -x $<TARGET_FILE:couple>
-        COMMAND ar -qcs ${LIBACCESSOM2} *.o
-        WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
-        DEPENDS datetime jsonfortran mct mpeu psmile.MPI1 scrip util forcing couple
-        )
-
-add_library(accessom2 STATIC IMPORTED GLOBAL)
-add_dependencies(accessom2 combined)
-set_target_properties(accessom2 PROPERTIES IMPORTED_LOCATION ${LIBACCESSOM2})
-
-# libforcing test executable
-file(GLOB FORCING_TEST_SOURCES libforcing/test/*.F90)
-add_executable(forcing_test.exe ${FORCING_TEST_SOURCES})
-target_link_libraries(forcing_test.exe forcing util datetime jsonfortran PkgConfig::NETCDF)
 set_target_properties(forcing_test.exe PROPERTIES
                       RUNTIME_OUTPUT_DIRECTORY libforcing/test/
 )
 
-# yatm executable
-file(GLOB ATM_SOURCES atm/src/*.F90)
-add_executable(yatm.exe ${ATM_SOURCES})
-target_link_libraries(yatm.exe accessom2 PkgConfig::NETCDF ${MPI_Fortran_LIBRARIES})
+add_executable(yatm.exe
+		atm/src/atm.F90
+		atm/src/ice_grid_proxy.F90
+		atm/src/kdrunoff_mod.F90
+		atm/src/kdtree2_module.F90
+		atm/src/remap_runoff_mod.F90
+		atm/src/runoff.F90
+		atm/src/yatm_version.F90
+)
+target_link_libraries(yatm.exe
+			accessom2
+			PkgConfig::DATETIME
+			PkgConfig::JSONFORTRAN
+			PkgConfig::OASIS3PSMILE
+			PkgConfig::OASIS3MCT
+			PkgConfig::OASIS3MPEU
+			PkgConfig::OASIS3SCRIP
+			PkgConfig::NETCDF
+)
 
-# ice stub executable
-file(GLOB ICE_STUB_SOURCES ice_stub/src/*.F90)
-add_executable(ice_stub.exe ${ICE_STUB_SOURCES})
-target_link_libraries(ice_stub.exe accessom2 PkgConfig::NETCDF ${MPI_Fortran_LIBRARIES})
+add_executable(ice_stub.exe
+		ice_stub/src/ice.F90
+		ice_stub/src/ice_grid.F90
+		ice_stub/src/ice_version.F90
+)
+target_link_libraries(ice_stub.exe
+			accessom2
+			PkgConfig::DATETIME
+			PkgConfig::OASIS3PSMILE
+			PkgConfig::OASIS3MCT
+			PkgConfig::OASIS3MPEU
+			PkgConfig::OASIS3SCRIP
+			PkgConfig::NETCDF
+)
 
-# ocean stub executable
-file(GLOB OCEAN_STUB_SOURCES ocean_stub/src/*.F90)
-add_executable(ocean_stub.exe ${OCEAN_STUB_SOURCES})
-target_link_libraries(ocean_stub.exe accessom2 PkgConfig::NETCDF ${MPI_Fortran_LIBRARIES})
+add_executable(ocean_stub.exe
+		ocean_stub/src/ocean.F90
+		ocean_stub/src/ocean_version.F90
+)
+target_link_libraries(ocean_stub.exe
+			accessom2
+			PkgConfig::DATETIME
+			PkgConfig::OASIS3PSMILE
+			PkgConfig::OASIS3MCT
+			PkgConfig::OASIS3MPEU
+			PkgConfig::OASIS3SCRIP
+			PkgConfig::NETCDF
+)
 
+include(GNUInstallDirs)
+cmake_path(APPEND PKGCONFIGFILE
+		${CMAKE_LIBRARY_OUTPUT_DIRECTORY} "pkgconfig" "libaccessom2.pc")
+cmake_path(APPEND INSTALL_PKGCONFIGDIR ${CMAKE_INSTALL_LIBDIR} "pkgconfig")
+configure_file(libaccessom2.pc.in ${PKGCONFIGFILE} @ONLY)
+
+
+install(TARGETS accessom2)
+install(TARGETS yatm.exe)
+install(TARGETS ice_stub.exe)
+install(TARGETS ocean_stub.exe)
+# Fortran mod files (https://gitlab.kitware.com/cmake/cmake/-/issues/19608)
+install(DIRECTORY ${CMAKE_Fortran_MODULE_DIRECTORY}/ TYPE INCLUDE)
+install(FILES ${PKGCONFIGFILE} DESTINATION ${INSTALL_PKGCONFIGDIR})

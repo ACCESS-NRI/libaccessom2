@@ -7,7 +7,7 @@ program ocean
     use restart_mod, only : restart_type => restart
     use accessom2_mod, only : accessom2_type => accessom2
     use mod_oasis, only : OASIS_IN, OASIS_OUT
-    use ocean_version_mod, only : OCEAN_STUB_COMMIT_HASH
+    use ocean_version_mod, only : OCEAN_STUB_VERSION
 
     implicit none
 
@@ -33,7 +33,7 @@ program ocean
                          from_ice_field_names, to_ice_field_names
     accessom2_config_dir = './'
 
-    print *, OCEAN_STUB_COMMIT_HASH
+    print *, OCEAN_STUB_VERSION
 
     ! Read namelist which model resolution and names and
     ! direction of coupling fields.

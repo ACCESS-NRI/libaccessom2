@@ -2,18 +2,18 @@
 module yatm_version_mod
 
 ! <OVERVIEW>
-!   This module provides a string which is the git hash (version) of the code
+!   This module provides a string which is the version of the code
 !   used to build this executable.
 !
 !   It can also be read from the command line with the following command:
-!   $ strings <executable> | grep 'YATM_COMMIT_HASH='
+!   $ strings <executable> | grep 'YATM_VERSION='
 ! </OVERVIEW>
 
 implicit none
 private
 
-character (len=*), parameter, public :: YATM_COMMIT_HASH = &
-                                        "YATM_COMMIT_HASH="//GIT_COMMIT_HASH
+character (len=*), parameter, public :: YATM_VERSION = &
+                                        "YATM_VERSION="//CMAKE_YATM_VERSION
 
 contains
 
