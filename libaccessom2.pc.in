@@ -6,6 +6,6 @@ includedir="${prefix}/include"
 Name: libaccessom2
 Description: @CMAKE_PROJECT_DESCRIPTION@
 Version: @PROJECT_VERSION@
-Requires.private: datetime
+Requires.private: datetime-fortran
 Cflags: -I"${includedir}"
 Libs: -L"${libdir}" -laccessom2
