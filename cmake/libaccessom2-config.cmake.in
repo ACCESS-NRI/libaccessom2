@@ -1,0 +1,33 @@
+# Copyright ACCESS-NRI and contributors. See the top-level LICENSE file for details.
+
+@PACKAGE_INIT@
+
+if(NOT libaccessom2_FIND_QUIETLY)
+  message(STATUS "Found libaccessom2: ${PACKAGE_PREFIX_DIR}")
+endif()
+
+include(CMakeFindDependencyMacro)
+
+# Request components
+set(_required_components ${libaccessom2_FIND_COMPONENTS})
+
+find_package(MPI REQUIRED)
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(NETCDF REQUIRED IMPORTED_TARGET "netcdf-fortran")
+# Back to using the upstream version as the the bug is apparently not
+# reproducible since intel-compiler/2019.5.281 and intel-compiler/2020.0.166:
+# https://github.com/wavebitscientific/datetime-fortran/issues/51
+pkg_check_modules(DATETIME REQUIRED IMPORTED_TARGET "datetime-fortran")
+pkg_check_modules(JSONFORTRAN REQUIRED IMPORTED_TARGET "json-fortran")
+pkg_check_modules(OASIS3MCT REQUIRED IMPORTED_TARGET "oasis3-mct")
+pkg_check_modules(OASIS3MPEU REQUIRED IMPORTED_TARGET "oasis3-mpeu")
+pkg_check_modules(OASIS3PSMILE REQUIRED IMPORTED_TARGET "oasis3-psmile.MPI1")
+pkg_check_modules(OASIS3SCRIP REQUIRED IMPORTED_TARGET "oasis3-scrip")
+
+# Run the normal Targets.cmake
+list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_LIST_DIR})
+include("${CMAKE_CURRENT_LIST_DIR}/libaccessom2-targets.cmake")
+list(REMOVE_ITEM CMAKE_MODULE_PATH ${CMAKE_CURRENT_LIST_DIR})
+
+# Check the requested components are valid
+check_required_components(_required_components)

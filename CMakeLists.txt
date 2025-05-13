@@ -91,7 +91,10 @@ target_sources(accessom2 PRIVATE
 target_link_libraries(accessom2 PUBLIC
 			util
 			PkgConfig::DATETIME
-			PkgConfig::OASIS3PSMILE)
+			PkgConfig::OASIS3PSMILE
+			PkgConfig::OASIS3MCT
+			PkgConfig::OASIS3MPEU
+			PkgConfig::OASIS3SCRIP)
 
 add_executable(forcing_test.exe libforcing/test/forcing_test.F90)
 target_link_libraries(forcing_test.exe
@@ -159,11 +162,33 @@ cmake_path(APPEND PKGCONFIGFILE
 cmake_path(APPEND INSTALL_PKGCONFIGDIR ${CMAKE_INSTALL_LIBDIR} "pkgconfig")
 configure_file(libaccessom2.pc.in ${PKGCONFIGFILE} @ONLY)
 
-
-install(TARGETS accessom2)
+# See note at the end of: https://cmake.org/cmake/help/latest/command/install.html#targets
+# Object Libraries with no destination install no artifacts but will be included in the EXPORT
+install(TARGETS util
+	EXPORT libaccessom2-targets)
+install(TARGETS accessom2
+	EXPORT libaccessom2-targets)
 install(TARGETS yatm.exe)
 install(TARGETS ice_stub.exe)
 install(TARGETS ocean_stub.exe)
 # Fortran mod files (https://gitlab.kitware.com/cmake/cmake/-/issues/19608)
 install(DIRECTORY ${CMAKE_Fortran_MODULE_DIRECTORY}/ TYPE INCLUDE)
 install(FILES ${PKGCONFIGFILE} DESTINATION ${INSTALL_PKGCONFIGDIR})
+
+target_include_directories(accessom2 PUBLIC "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>")
+
+install(EXPORT libaccessom2-targets
+	FILE libaccessom2-targets.cmake
+	NAMESPACE libaccessom2::
+	DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/libaccessom2
+)
+
+include(CMakePackageConfigHelpers)
+configure_package_config_file(
+	cmake/libaccessom2-config.cmake.in
+	"${CMAKE_CURRENT_BINARY_DIR}/libaccessom2-config.cmake"
+	INSTALL_DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/libaccessom2
+)
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/libaccessom2-config.cmake
+	DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/libaccessom2
+)
