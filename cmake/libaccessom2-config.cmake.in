@@ -11,8 +11,8 @@ include(CMakeFindDependencyMacro)
 # Request components
 set(_required_components ${libaccessom2_FIND_COMPONENTS})
 
-find_package(MPI REQUIRED)
-find_package(PkgConfig REQUIRED)
+find_dependency(MPI REQUIRED)
+find_dependency(PkgConfig REQUIRED)
 pkg_check_modules(NETCDF REQUIRED IMPORTED_TARGET "netcdf-fortran")
 # Back to using the upstream version as the the bug is apparently not
 # reproducible since intel-compiler/2019.5.281 and intel-compiler/2020.0.166:
