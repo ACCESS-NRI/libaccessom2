@@ -1,5 +1,5 @@
 {
     "gcc_compiler": "gcc@13.2.0",
-    "intel_compiler": "intel@19.0.5.281",
+    "intel_compiler": "intel@21.10.0",
     "target": "x86_64"
 }

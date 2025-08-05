@@ -20,7 +20,8 @@ spack:
         - '@2.5.2'
     all:
       require:
-      - '%{{ intel_compiler }} target={{ target }}'
+      - '%{{ intel_compiler }}'
+      - 'target={{ target }}'
   concretizer:
     unify: false
   view: false

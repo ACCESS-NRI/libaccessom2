@@ -32,8 +32,8 @@ spack:
         - '@4.0.2'
     all:
       require:
-        - '%intel@19.0.5.281'
-        - 'target=x86_64'
+        - '%{{ intel_compiler }}'
+        - 'target={{ target }}'
   view: true
   concretizer:
     unify: true
