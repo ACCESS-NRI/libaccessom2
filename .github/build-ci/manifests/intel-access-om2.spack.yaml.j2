@@ -30,6 +30,9 @@ spack:
     openmpi:
       require:
         - '@4.0.2'
+    gcc-runtime:
+      require:
+      - '%gcc target={{ target }}'
     all:
       require:
         - '%{{ intel_compiler }}'

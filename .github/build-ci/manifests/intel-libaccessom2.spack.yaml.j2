@@ -18,6 +18,9 @@ spack:
     parallelio:
       require:
         - '@2.5.2'
+    gcc-runtime:
+      require:
+      - '%gcc target={{ target }}'
     all:
       require:
       - '%{{ intel_compiler }}'
