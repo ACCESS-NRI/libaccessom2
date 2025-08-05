@@ -1,0 +1,26 @@
+# Building OASIS3-mct stand-alone using access-esm1.5 spack version
+spack:
+  specs:
+  - 'libaccessom2@git.{{ ref }}=access-om2'
+  packages:
+    oasis3-mct:
+      require:
+        - '@git.2023.11.09=access-om2'
+    openmpi:
+      require:
+        - '@4.0.2'
+    netcdf-c:
+      require:
+        - '@4.7.4'
+    netcdf-fortran:
+      require:
+        - '@4.5.2'
+    parallelio:
+      require:
+        - '@2.5.2'
+    all:
+      require:
+      - '%{{ intel_compiler }} target={{ target }}'
+  concretizer:
+    unify: false
+  view: false
