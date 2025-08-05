@@ -4,7 +4,6 @@ __pycache__
 *.pyc
 .swo
 .cache
-build*
 building-errors.log
 debug.root.01
 debug.01.000000
