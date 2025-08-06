@@ -1,7 +1,5 @@
 
-| GitHub CI | Travis CI | Jenkins Tests |
-|:----------------:|:----------------:|:------------------:|
-|[![GitHub Build Status](https://github.com/COSIMA/libaccessom2/workflows/CI/badge.svg)](https://github.com/COSIMA/libaccessom2/actions?query=workflow%3ACI)|[![Build Status](https://travis-ci.org/COSIMA/libaccessom2.svg?branch=master)](https://travis-ci.org/COSIMA/libaccessom2) |[![Test Status](https://accessdev.nci.org.au/jenkins/buildStatus/icon?job=ACCESS-OM2/libaccessom2)](https://accessdev.nci.org.au/jenkins/job/ACCESS-OM2/job/libaccessom2/)|
+[![Build](https://github.com/ACCESS-NRI/libaccessom2/actions/workflows/ci.yml/badge.svg)](https://github.com/ACCESS-NRI/libaccessom2/actions/workflows/ci.yml)
 
 # libaccessom2
 
