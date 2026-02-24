@@ -131,7 +131,7 @@ subroutine forcing_field_apply_perturbations(self, forcing_date, experiment_date
     integer :: num_separable_perturbations
     logical :: found
 
-    if (size(self%perturbations) == 0) then
+    if (.not. allocated(self%perturbations) .or. size(self%perturbations) == 0) then
         return
     endif
 
