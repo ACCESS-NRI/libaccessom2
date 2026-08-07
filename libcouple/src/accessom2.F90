@@ -9,7 +9,7 @@ use datetime_module, only : datetime, c_strptime, tm2date, tm_struct, timedelta
 use datetime_module, only : date2num, num2date
 use error_handler, only : assert
 use coupler_mod, only : coupler_type => coupler
-use logger_mod, only : logger_type => logger, LOG_ERROR
+use logger_mod, only : logger_type => logger, LOG_ERROR, LOG_INFO
 use libaccessom2_version_mod, only : LIBACCESSOM2_VERSION
 
 implicit none
@@ -42,6 +42,10 @@ type accessom2
     integer, dimension(3) :: restart_period
 
     logical :: allow_forcing_and_exp_date_mismatch
+
+    ! Optional user override of the calendar otherwise derived from the
+    ! forcing files, see accessom2_set_calendar.
+    character(len=9) :: calendar_override
 
     character(len=9) :: calendar_str
     integer :: calendar
@@ -113,13 +117,14 @@ character(len=19) :: forcing_start_date, forcing_end_date
 character(len=19) :: exp_cur_date, forcing_cur_date
 integer, dimension(3) :: restart_period
 logical :: allow_forcing_and_exp_date_mismatch
+character(len=9) :: calendar_override
 character(len=8) :: log_level
 logical :: enable_simple_timers
 integer :: ice_ocean_timestep
 
 namelist /accessom2_nml/ log_level, ice_ocean_timestep, enable_simple_timers
 namelist /date_manager_nml/ forcing_start_date, forcing_end_date, &
-         restart_period, allow_forcing_and_exp_date_mismatch
+         restart_period, allow_forcing_and_exp_date_mismatch, calendar_override
 namelist /do_not_edit_nml/ forcing_cur_date, exp_cur_date
 
 contains
@@ -155,6 +160,7 @@ subroutine accessom2_init(self, model_name, config_dir)
     ice_ocean_timestep = 300
     enable_simple_timers = .false.
     allow_forcing_and_exp_date_mismatch = .false.
+    calendar_override = ''
 
     ! Read namelist which includes information about the forcing start and end date
     path = trim(config_dir)//'/'//trim(config_file)
@@ -181,6 +187,14 @@ subroutine accessom2_init(self, model_name, config_dir)
 
     self%restart_period = restart_period
     self%allow_forcing_and_exp_date_mismatch = allow_forcing_and_exp_date_mismatch
+
+    if (len_trim(calendar_override) > 0) then
+        call assert(trim(calendar_override) == 'noleap' .or. &
+                    trim(calendar_override) == 'gregorian', &
+                    'accessom2_init: calendar_override must be one of '// &
+                    "'noleap' or 'gregorian', got: "//trim(calendar_override))
+    endif
+    self%calendar_override = calendar_override
 
     ! Read in exp_cur_date and focing_cur_date from restart file.
     ! Try to read from config dir first.
@@ -220,16 +234,44 @@ subroutine accessom2_init(self, model_name, config_dir)
 
 endsubroutine accessom2_init
 
+!> Set the calendar. This is derived by the caller from the forcing files unless
+! calendar_override was supplied in date_manager_nml. The calendar_override param
+! provides a way to set the accessom2 calendar differently from the calendar in
+! the forcing files. Only overriding with calendar_override="noleap" is currently
+! supported, to allow running accessom2 with a noleap calendar but using forcing
+! with a gregorian calendar.
 subroutine accessom2_set_calendar(self, calendar)
     class(accessom2), intent(inout) :: self
     character(len=*), intent(in) :: calendar
 
-    self%calendar_str = calendar
-    if (index(trim(calendar), 'noleap') /= 0) then
+    character(len=9) :: effective_calendar
+
+    effective_calendar = trim(calendar)
+
+    if (len_trim(self%calendar_override) > 0 .and. &
+        trim(self%calendar_override) /= trim(effective_calendar)) then
+
+        call assert(trim(self%calendar_override) == 'noleap' .and. &
+                    trim(effective_calendar) == 'gregorian', &
+                    'accessom2_set_calendar: calendar_override='//trim(self%calendar_override)// &
+                    ' was requested but the forcing files use calendar='// &
+                    trim(effective_calendar)//'. Only overriding gregorian forcing to run'// &
+                    ' on noleap is currently supported (this drops Feb 29 records).')
+
+        call self%logger%write(LOG_INFO, &
+            'accessom2_set_calendar: forcing files use calendar='//trim(effective_calendar)// &
+            ' but calendar_override='//trim(self%calendar_override)//' was set. Feb 29 records'// &
+            ' will be dropped from the forcing data.')
+
+        effective_calendar = self%calendar_override
+    endif
+
+    self%calendar_str = effective_calendar
+    if (index(trim(effective_calendar), 'noleap') /= 0) then
         self%calendar = CALENDAR_NOLEAP
     else
-        call assert(index(trim(calendar), 'gregorian') /= 0, &
-                    'accessom2_set_calendar: Unsupported calendar type: '//trim(calendar))
+        call assert(index(trim(effective_calendar), 'gregorian') /= 0, &
+                    'accessom2_set_calendar: Unsupported calendar type: '//trim(effective_calendar))
         self%calendar = CALENDAR_GREGORIAN
     endif
 
