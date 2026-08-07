@@ -37,6 +37,7 @@ libaccessom2 has a single configuration file called `accessom2.nml` which is usu
 * `forcing_start_date` the date (and time) when forcing begins.
 * `forcing_end_date` the start (and time) at which the forcing ends. The time between the `forcing_start_date` and `forcing_end_date` is called the forcing period. The model will be forced by a continuous repetition of this period.
 * `restart_period`: interval of time between successive model restarts. This is provided as a tuple: years, months, seconds. This breaks the entire experiment into a collection of runs or segments.
+* `calendar_override` (optional): by default the calendar (`noleap` or `gregorian`) is read from the forcing files and used by both the forcing and experiment clocks. Setting `calendar_override = 'noleap'` runs accessom2 on a `noleap` calendar even when the forcing files are `gregorian`, dropping Feb 29 from the forcing records. The reverse (`calendar_override = 'gregorian'` with `noleap` forcing files) is not currently supported.
 
 These is no configruation option that controls when an experiment ends, it will simply continue until it is stopped.
 
