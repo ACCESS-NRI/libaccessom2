@@ -37,6 +37,7 @@ libaccessom2 has a single configuration file called `accessom2.nml` which is usu
 * `forcing_start_date` the date (and time) when forcing begins.
 * `forcing_end_date` the start (and time) at which the forcing ends. The time between the `forcing_start_date` and `forcing_end_date` is called the forcing period. The model will be forced by a continuous repetition of this period.
 * `restart_period`: interval of time between successive model restarts. This is provided as a tuple: years, months, seconds. This breaks the entire experiment into a collection of runs or segments.
+* `calendar_override` (optional): by default the calendar (`noleap` or `gregorian`) is read from the forcing files and used by both the forcing and experiment clocks. Setting `calendar_override = 'noleap'` runs accessom2 on a `noleap` calendar even when the forcing files are `gregorian`, dropping Feb 29 from the forcing records. The reverse (`calendar_override = 'gregorian'` with `noleap` forcing files) is not currently supported.
 
 These is no configruation option that controls when an experiment ends, it will simply continue until it is stopped.
 
@@ -50,7 +51,7 @@ YATM uses two configuration files: `atm.nml`, and `forcing.json`. The latter is 
 
 A unique feature of YATM is that it does not read forcing data by iterating over records. That is, the code does not explicitly read and deliver the 1st forcing record followed by the 2nd etc. The reason for this is that when accounting for complications such as different calendar types, fields with different periods, restarts, etc. this approach can quickly become complex and is error prone. Instead YATM iterates over datetime objects. At the current date (and time) YATM finds all matching forcing fields, reads them from disk, delivers them the coupler and then incrementes current date (and time). This simplification has led to much more concise and easy to understand code.
 
-To further simplify things YATM gathers a lot of it's configuration automatically from the forcing dataset metadata. For example the calendar type and timestep information.
+To further simplify things YATM gathers a lot of it's configuration automatically from the forcing dataset metadata. For example the default calendar type and timestep information.
 
 ## River runoff remapping
 
