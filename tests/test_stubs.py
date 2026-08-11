@@ -12,27 +12,6 @@ import shutil
 from collections import OrderedDict
 from helper import Helper
 
-class LogItem:
-
-    def __init__(self, field_name, field_file,
-                 field_index, forcing_datetime, checksum,
-                 cur_exp_dts, cur_forcing_dts):
-        self.forcing_datetime = forcing_datetime
-        self.field_name = field_name
-        self.field_file = field_file
-        self.field_index = field_index
-        self.checksum = checksum
-        self.cur_exp_dts = cur_exp_dts
-        self.cur_forcing_dts = cur_forcing_dts
-
-
-def extract_field_name(checksum):
-    k = list(checksum.keys())
-    assert len(k) == 1
-    k = k[0]
-
-    return k.split('-')[2]
-
 def dicts_to_list(key_name, log_str):
     lines = filter(lambda x : key_name in x, log_str.splitlines())
     out = []
@@ -41,71 +20,18 @@ def dicts_to_list(key_name, log_str):
     return out
 
 
-def build_log_items(log_str):
+def get_exchange_datetimes(log_str):
+    """
+    Return the (cur_exp_dts, cur_forcing_dts) pairs logged once per exchange.
+    """
 
-    # There will be one of these for each single field exchange
-    field_update_files = dicts_to_list('forcing_field_update-file', log_str)
-    field_update_indices = dicts_to_list('forcing_field_update-index', log_str)
-
-    tmp_chk = filter(lambda x : 'checksum' in x, log_str.splitlines())
-    checksums = []
-    for c in tmp_chk:
-        checksums.append(ast.literal_eval(c.strip()))
-
-    # Remove duplicate runoff checksums
-    checksums, num_removed = remove_duplicate_runoff_checksums(checksums)
-
-    assert len(field_update_files) == len(field_update_indices) == len(checksums)
-
-    # Figure out field names
-    field_names = set()
-    for i in range(len(checksums)):
-        field_name = extract_field_name(checksums[i])
-        field_names.add(field_name)
-    field_names = list(field_names)
-
-    # There should be one cur_exp_dts and cur_forcing_dts for each exchange of
-    # all fields
     cur_exp_dts = dicts_to_list('cur_exp-datetime', log_str)
     cur_exp_dts = [dateutil.parser.parse(d) for d in cur_exp_dts]
     cur_forcing_dts = dicts_to_list('cur_forcing-datetime', log_str)
     cur_forcing_dts = [dateutil.parser.parse(d) for d in cur_forcing_dts]
-    assert len(cur_exp_dts) == len(cur_forcing_dts) == \
-            (len(checksums) // len(field_names))
+    assert len(cur_exp_dts) == len(cur_forcing_dts) > 0
 
-    log_items = []
-    i = 0
-    for xchgi in range(len(cur_forcing_dts)):
-        for fldi in range(len(field_names)):
-            item = LogItem(field_names[fldi], field_update_files[i],
-                           field_update_indices[i], cur_forcing_dts[xchgi],
-                           checksums[i], cur_exp_dts[xchgi],
-                           cur_forcing_dts[xchgi])
-            log_items.append(item)
-            i += 1
-
-    return log_items
-
-def remove_duplicate_runoff_checksums(checksums):
-
-    new_checksums = []
-    found_runoff_checksums = []
-    num_removed_runoff_checksums = 0
-
-    for c in checksums:
-        k = list(c.keys())
-        v = list(c.values())
-        assert len(k) == 1
-        if 'runof_ai' in k[0]:
-            if v[0] not in found_runoff_checksums:
-                new_checksums.append(c)
-                found_runoff_checksums.append(v[0])
-            else:
-                num_removed_runoff_checksums += 1
-        else:
-            new_checksums.append(c)
-
-    return new_checksums, num_removed_runoff_checksums
+    return cur_exp_dts, cur_forcing_dts
 
 @pytest.fixture
 def helper():
@@ -183,10 +109,6 @@ class TestStubs:
             assert abs(run_checksums[k] - (expected_val)) < (expected_val * 1e-7)
 
 
-    # build_log_items assumes every field produces exactly one checksum and one
-    # forcing_field_update-file/-index pair per exchange, evenly divisible by len(field_names).
-    # This is not necessarily the case, nor has it ever been.
-    @pytest.mark.skip
     @pytest.mark.slow
     def test_forcing_fields(self, helper, exp):
         """
@@ -196,7 +118,7 @@ class TestStubs:
         ret, output, log, matm_log = helper.run_exp(exp)
         assert ret == 0
 
-        log_items = build_log_items(matm_log)
+        cur_exp_dts, cur_forcing_dts = get_exchange_datetimes(matm_log)
 
         # Get the experiment start and end dates
         exp_dir = os.path.join(helper.test_dir, exp)
@@ -214,11 +136,10 @@ class TestStubs:
             forcing = json.load(f)
 
         # Check that first forcing time corrosponds to forcing_start_date
-        assert log_items[0].forcing_datetime == forcing_start_date
+        assert cur_forcing_dts[0] == forcing_start_date
 
         # Check that field dt is all the same and as expected
-        uniq_dt = list(OrderedDict.fromkeys(
-            item.forcing_datetime for item in log_items))
+        uniq_dt = list(OrderedDict.fromkeys(cur_forcing_dts))
         dt = [b - a for a, b in zip(uniq_dt, uniq_dt[1:])]
         assert set(dt).pop() == datetime.timedelta(hours=3)
 
@@ -250,7 +171,6 @@ class TestStubs:
 
         runtime_years = 5*60
         curr_year = 0
-        curr_cycle = 0
 
         while curr_year <= runtime_years:
             restart = curr_year != 0
@@ -259,18 +179,18 @@ class TestStubs:
 
             curr_cycle = curr_year // 60
 
-            log_items = build_log_items(matm_log)
+            cur_exp_dts, cur_forcing_dts = get_exchange_datetimes(matm_log)
 
-            for li in log_items:
+            for exp_dt, forcing_dt in zip(cur_exp_dts, cur_forcing_dts):
                 # Check the experiment year
-                assert li.cur_exp_dts.year == curr_year + 1958
-                assert li.cur_exp_dts.year == li.cur_forcing_dts.year + (curr_cycle * 60)
+                assert exp_dt.year == curr_year + 1958
+                assert exp_dt.year == forcing_dt.year + (curr_cycle * 60)
 
                 # Check that experiment and forcing dates only differ in the year.
-                assert li.cur_exp_dts.month == li.cur_forcing_dts.month
-                assert li.cur_exp_dts.day == li.cur_forcing_dts.day
-                assert li.cur_exp_dts.hour == li.cur_forcing_dts.hour
-                assert li.cur_exp_dts.minute == li.cur_forcing_dts.minute
-                assert li.cur_exp_dts.second == li.cur_forcing_dts.second
+                assert exp_dt.month == forcing_dt.month
+                assert exp_dt.day == forcing_dt.day
+                assert exp_dt.hour == forcing_dt.hour
+                assert exp_dt.minute == forcing_dt.minute
+                assert exp_dt.second == forcing_dt.second
 
             curr_year += 1
