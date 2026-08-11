@@ -169,7 +169,12 @@ class TestStubs:
         https://github.com/COSIMA/access-om2/issues/149
         """
 
-        runtime_years = 5*60
+        cycle_length = 5
+        runtime_years = 5*cycle_length
+        # replay_years is the list of experiment years where the forcing year is not a leap year
+        # but the experiment year is. accessom2_progress_date replays the previous forcing for
+        # the leap day in these years.
+        replay_years = [1964, 1968, 1972, 1976]
         curr_year = 0
 
         while curr_year <= runtime_years:
@@ -177,18 +182,24 @@ class TestStubs:
             ret, output, log, matm_log = helper.run_exp(exp_fast, restart=restart, years_duration=1)
             assert ret == 0
 
-            curr_cycle = curr_year // 60
+            curr_cycle = curr_year // cycle_length
 
             cur_exp_dts, cur_forcing_dts = get_exchange_datetimes(matm_log)
 
             for exp_dt, forcing_dt in zip(cur_exp_dts, cur_forcing_dts):
                 # Check the experiment year
                 assert exp_dt.year == curr_year + 1958
-                assert exp_dt.year == forcing_dt.year + (curr_cycle * 60)
+                assert exp_dt.year == forcing_dt.year + (curr_cycle * cycle_length)
 
-                # Check that experiment and forcing dates only differ in the year.
-                assert exp_dt.month == forcing_dt.month
-                assert exp_dt.day == forcing_dt.day
+                if exp_dt.year in replay_years and exp_dt.month == 2 and exp_dt.day == 29:
+                    # The forcing year doesn't have this leap day, so the
+                    # previous forcing day is replayed instead.
+                    assert forcing_dt.month == 2 and forcing_dt.day == 28
+                else:
+                    # Check that experiment and forcing dates only differ in the year.
+                    assert exp_dt.month == forcing_dt.month
+                    assert exp_dt.day == forcing_dt.day
+
                 assert exp_dt.hour == forcing_dt.hour
                 assert exp_dt.minute == forcing_dt.minute
                 assert exp_dt.second == forcing_dt.second
