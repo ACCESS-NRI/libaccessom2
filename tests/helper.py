@@ -21,12 +21,12 @@ class Helper:
     def __init__(self):
         self.test_dir = os.path.dirname(os.path.realpath(__file__))
         self.test_data_dir = os.path.join(self.test_dir, 'test_data')
-        self.atm_exe = os.path.join(self.test_dir, '..',
-                                    'build', 'bin', 'yatm.exe')
-        self.ice_exe = os.path.join(self.test_dir, '..',
-                                    'build', 'bin', 'ice_stub.exe')
-        self.ocean_exe = os.path.join(self.test_dir, '..',
-                                      'build', 'bin', 'ocean_stub.exe')
+        self.atm_exe = shutil.which('yatm.exe')
+        self.ice_exe = shutil.which('ice_stub.exe')
+        self.ocean_exe = shutil.which('ocean_stub.exe')
+        assert self.atm_exe, 'yatm.exe not found on PATH'
+        assert self.ice_exe, 'ice_stub.exe not found on PATH'
+        assert self.ocean_exe, 'ocean_stub.exe not found on PATH'
 
     def checksums(self, exp_dir):
         """

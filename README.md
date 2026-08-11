@@ -68,48 +68,59 @@ This repository also includes ice and ocean stubs. These are stand-ins for the t
 
 # Build
 
-How to build libaccessom2, YATM, ice\_stub and ocean\_stub on gadi (NCI):
+The easiest way to build libaccessom2, YATM, ice\_stub and ocean\_stub on gadi (NCI) is to use spack:
 
 ```{bash}
-git clone https://github.com/ACCESS-NRI/libaccessom2.git
-cd libaccessom2
-./build.sh
+module use /g/data/vk83/modules/
+module load spack
+spack install libaccessom2 dev_path=.
 ```
 
 # Run tests on Gadi (NCI)
 
-First do build as above. Then to get some computer resources:
-
-```{bash}
-qsub -I -P x77 -q normal -lncpus=4 -lmem=16Gb -lwalltime=3:00:00 -lstorage=gdata/ua8+gdata/qv56+gdata/hh5+gdata/ik11
-
-/g/data1b/qv56/
+To run the tests you will need to install `libaccessom2` and Python packages `pytest`, `numpy`,
+`f90nml`, `netcdf4` and `dateutil`. You can set up a spack environment to run the tests as follows:
+```
+module use /g/data/vk83/modules/
+module load spack
+spack env create --dir .
+spack env activate .
+spack add libaccessom2 dev_path=.
+spack add py-pytest py-numpy py-f90nml py-netcdf4~mpi py-python-dateutil
+spack concretize
+spack install
 ```
 
-The tests: `JRA55_IAF JRA55_IAF_SINGLE_FIELD JRA55_RYF JRA55_RYF_MINIMAL JRA55_v1p4_IAF` can all be run manually as follows. Replace `JRA55_IAF` with the test to be run.
+Then get some computer resources and activate your spack environment:
+
+```{bash}
+qsub -I -qnormal -lwalltime=3:00:00,ncpus=4,mem=16Gb,storage=gdata/vk83+gdata/ik11+gdata/qv56,wd
+module load spack
+spack env activate .
+ulimit -s unlimited
+```
+
+The tests: `JRA55_IAF JRA55_IAF_SINGLE_FIELD JRA55_RYF JRA55_RYF_MINIMAL` can all be run manually as follows. Replace `JRA55_IAF` with the test to be run.
 
 ```{bash}
 export LIBACCESSOM2_ROOT=$(pwd)
-module load openmpi
 cd tests/
 ./copy_test_data.sh
 cd JRA55_IAF
 rm -rf log ; mkdir log ; rm -f accessom2_restart.nml ; cp ../test_data/i2o.nc ./ ; cp ../test_data/o2i.nc ./
-export UCX_LOG_LEVEL=error; mpirun -np 1 $LIBACCESSOM2_ROOT/build/bin/yatm.exe : -np 1 $LIBACCESSOM2_ROOT/build/bin/ice_stub.exe : -np 1 $LIBACCESSOM2_ROOT/build/bin/ocean_stub.exe
+export UCX_LOG_LEVEL=error; mpirun -np 1 yatm.exe : -np 1 ice_stub.exe : -np 1 ocean_stub.exe
 ```
 
-If Python3 and pytest are installed then all of the above and some additional tests can be run with:
+With the above Python packages installed, all of the above and some additional tests can be run with:
 
 ```{bash}
-module load openmpi
 python -m pytest tests/
 ```
 
 Any individual pytest test can be run using pytest as follows:
 
 ```{bash}
-module load openmpi
-python -m pytest test_stubs.py::TestStubs::test_field_scaling
+python -m pytest tests/test_stubs.py::TestStubs::test_forcing_perturbations
 ```
 
 The above is the only way to run the `FORCING_SCALING` test case because it relies on the Python test code to create one of the inputs.

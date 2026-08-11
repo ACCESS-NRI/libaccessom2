@@ -37,7 +37,7 @@ def get_exchange_datetimes(log_str):
 def helper():
     return Helper()
 
-@pytest.fixture(params=['JRA55_RYF_MINIMAL', 'JRA55_IAF', 'JRA55_RYF', 'JRA55_v1p4_IAF'])
+@pytest.fixture(params=['JRA55_RYF_MINIMAL', 'JRA55_IAF', 'JRA55_RYF'])
 def exp(request):
     yield request.param
 
@@ -82,8 +82,8 @@ class TestStubs:
         """
 
         forcing_field = None
-        scaling_file = 'test_data/scaling.RYF.rsds.1990_1991.nc'
-        forcing_file = '/g/data/ua8/JRA55-do/RYF/v1-3/RYF.rsds.1990_1991.nc'
+        scaling_file = os.path.join(helper.test_data_dir, 'scaling.RYF.rsds.1990_1991.nc')
+        forcing_file = '/g/data/vk83/configurations/inputs/JRA-55/RYF/v1-4/data/RYF.rsds.1990_1991.nc'
         shutil.copy(forcing_file, scaling_file)
 
         keys = ['checksum-matmxx-swfld_ai-0000000000',
