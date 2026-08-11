@@ -109,6 +109,68 @@ class TestStubs:
             assert abs(run_checksums[k] - (expected_val)) < (expected_val * 1e-7)
 
 
+    @pytest.mark.fast
+    def test_calendar_override_unsupported(self, helper):
+        """
+        Test that an unrecognised calendar_override causes the model to abort.
+        """
+
+        ret, output, log, matm_log = helper.run_exp(
+            'JRA55_RYF_MINIMAL',
+            calendar_override='julian'
+        )
+        assert ret != 0
+
+
+    @pytest.mark.fast
+    @pytest.mark.parametrize('exp_name,calendar', {
+        'JRA55_RYF_MINIMAL': 'noleap',
+        'JRA55_IAF_SINGLE_FIELD': 'gregorian',
+    }.items())
+    def test_calendar_override_matching(self, helper, exp_name, calendar):
+        """
+        Test that setting calendar_override to the same calendar already used by the
+        forcing files does not change model behaviour.
+        """
+
+        ret, output, log, matm_log = helper.run_exp(exp_name, calendar_override=calendar)
+        assert ret == 0
+
+        run_checksums = helper.filter_checksums(log)
+        stored_checksums = helper.checksums(exp_name)
+        assert run_checksums == stored_checksums
+
+
+    @pytest.mark.fast
+    def test_calendar_override_noleap(self, helper):
+        """
+        Test that calendar_override='noleap' with gregorian JRA55_IAF forcing data skips
+        Feb 29th in the forcing data
+        """
+
+        ret, output, log, matm_log = helper.run_exp('JRA55_IAF', calendar_override='noleap')
+        assert ret == 0
+
+        cur_exp_dts, cur_forcing_dts = get_exchange_datetimes(matm_log)
+        assert cur_exp_dts == cur_forcing_dts
+        for dt in cur_forcing_dts:
+            assert not (dt.month == 2 and dt.day == 29)
+
+
+    @pytest.mark.fast
+    def test_calendar_override_gregorian(self, helper):
+        """
+        Test that calendar_override='gregorian' with noleap JRA55_RYF_MINIMAL forcing
+        data aborts since it is not currently supported
+        """
+
+        ret, output, log, matm_log = helper.run_exp(
+            'JRA55_RYF_MINIMAL',
+            calendar_override='gregorian'
+        )
+        assert ret != 0
+
+
     @pytest.mark.slow
     def test_forcing_fields(self, helper, exp):
         """
@@ -161,7 +223,8 @@ class TestStubs:
         pass
 
     @pytest.mark.slow
-    def test_iaf_cycles(self, helper, exp_fast):
+    @pytest.mark.parametrize('calendar_override', [None, 'noleap'])
+    def test_iaf_cycles(self, helper, exp_fast, calendar_override):
         """
         Test that experiment and forcing dates are always in sync.
 
@@ -179,7 +242,12 @@ class TestStubs:
 
         while curr_year <= runtime_years:
             restart = curr_year != 0
-            ret, output, log, matm_log = helper.run_exp(exp_fast, restart=restart, years_duration=1)
+            ret, output, log, matm_log = helper.run_exp(
+                exp_fast,
+                restart=restart,
+                years_duration=1,
+                calendar_override=calendar_override
+            )
             assert ret == 0
 
             curr_cycle = curr_year // cycle_length
@@ -194,6 +262,7 @@ class TestStubs:
                 if exp_dt.year in replay_years and exp_dt.month == 2 and exp_dt.day == 29:
                     # The forcing year doesn't have this leap day, so the
                     # previous forcing day is replayed instead.
+                    assert calendar_override != 'noleap'
                     assert forcing_dt.month == 2 and forcing_dt.day == 28
                 else:
                     # Check that experiment and forcing dates only differ in the year.
