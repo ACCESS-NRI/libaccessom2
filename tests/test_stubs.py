@@ -37,7 +37,7 @@ def get_exchange_datetimes(log_str):
 def helper():
     return Helper()
 
-@pytest.fixture(params=['JRA55_RYF_MINIMAL', 'JRA55_IAF', 'JRA55_RYF'])
+@pytest.fixture(params=['JRA55_RYF_MINIMAL', 'JRA55_IAF', 'JRA55_RYF', 'JRA55_v1p3_IAF'])
 def exp(request):
     yield request.param
 
