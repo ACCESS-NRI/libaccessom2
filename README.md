@@ -37,6 +37,7 @@ libaccessom2 has a single configuration file called `accessom2.nml` which is usu
 * `forcing_start_date` the date (and time) when forcing begins.
 * `forcing_end_date` the start (and time) at which the forcing ends. The time between the `forcing_start_date` and `forcing_end_date` is called the forcing period. The model will be forced by a continuous repetition of this period.
 * `restart_period`: interval of time between successive model restarts. This is provided as a tuple: years, months, seconds. This breaks the entire experiment into a collection of runs or segments.
+* `calendar_override` (optional): by default the calendar (`noleap` or `gregorian`) is read from the forcing files and used by both the forcing and experiment clocks. Setting `calendar_override = 'noleap'` runs accessom2 on a `noleap` calendar even when the forcing files are `gregorian`, dropping Feb 29 from the forcing records. The reverse (`calendar_override = 'gregorian'` with `noleap` forcing files) is not currently supported.
 
 These is no configruation option that controls when an experiment ends, it will simply continue until it is stopped.
 
@@ -50,7 +51,7 @@ YATM uses two configuration files: `atm.nml`, and `forcing.json`. The latter is 
 
 A unique feature of YATM is that it does not read forcing data by iterating over records. That is, the code does not explicitly read and deliver the 1st forcing record followed by the 2nd etc. The reason for this is that when accounting for complications such as different calendar types, fields with different periods, restarts, etc. this approach can quickly become complex and is error prone. Instead YATM iterates over datetime objects. At the current date (and time) YATM finds all matching forcing fields, reads them from disk, delivers them the coupler and then incrementes current date (and time). This simplification has led to much more concise and easy to understand code.
 
-To further simplify things YATM gathers a lot of it's configuration automatically from the forcing dataset metadata. For example the calendar type and timestep information.
+To further simplify things YATM gathers a lot of it's configuration automatically from the forcing dataset metadata. For example the default calendar type and timestep information.
 
 ## River runoff remapping
 
@@ -67,48 +68,59 @@ This repository also includes ice and ocean stubs. These are stand-ins for the t
 
 # Build
 
-How to build libaccessom2, YATM, ice\_stub and ocean\_stub on gadi (NCI):
+The easiest way to build libaccessom2, YATM, ice\_stub and ocean\_stub on gadi (NCI) is to use spack:
 
 ```{bash}
-git clone https://github.com/ACCESS-NRI/libaccessom2.git
-cd libaccessom2
-./build.sh
+module use /g/data/vk83/modules/
+module load spack
+spack install libaccessom2 dev_path=.
 ```
 
 # Run tests on Gadi (NCI)
 
-First do build as above. Then to get some computer resources:
-
-```{bash}
-qsub -I -P x77 -q normal -lncpus=4 -lmem=16Gb -lwalltime=3:00:00 -lstorage=gdata/ua8+gdata/qv56+gdata/hh5+gdata/ik11
-
-/g/data1b/qv56/
+To run the tests you will need to install `libaccessom2` and Python packages `pytest`, `numpy`,
+`f90nml`, `netcdf4` and `dateutil`. You can set up a spack environment to run the tests as follows:
+```
+module use /g/data/vk83/modules/
+module load spack
+spack env create --dir .
+spack env activate .
+spack add libaccessom2 dev_path=.
+spack add py-pytest py-numpy py-f90nml py-netcdf4~mpi py-python-dateutil
+spack concretize
+spack install
 ```
 
-The tests: `JRA55_IAF JRA55_IAF_SINGLE_FIELD JRA55_RYF JRA55_RYF_MINIMAL JRA55_v1p4_IAF` can all be run manually as follows. Replace `JRA55_IAF` with the test to be run.
+Then get some computer resources and activate your spack environment:
+
+```{bash}
+qsub -I -qnormal -lwalltime=3:00:00,ncpus=4,mem=16Gb,storage=gdata/vk83+gdata/ik11+gdata/qv56,wd
+module load spack
+spack env activate .
+ulimit -s unlimited
+```
+
+The tests: `JRA55_IAF JRA55_IAF_SINGLE_FIELD JRA55_RYF JRA55_RYF_MINIMAL` can all be run manually as follows. Replace `JRA55_IAF` with the test to be run.
 
 ```{bash}
 export LIBACCESSOM2_ROOT=$(pwd)
-module load openmpi
 cd tests/
 ./copy_test_data.sh
 cd JRA55_IAF
 rm -rf log ; mkdir log ; rm -f accessom2_restart.nml ; cp ../test_data/i2o.nc ./ ; cp ../test_data/o2i.nc ./
-export UCX_LOG_LEVEL=error; mpirun -np 1 $LIBACCESSOM2_ROOT/build/bin/yatm.exe : -np 1 $LIBACCESSOM2_ROOT/build/bin/ice_stub.exe : -np 1 $LIBACCESSOM2_ROOT/build/bin/ocean_stub.exe
+export UCX_LOG_LEVEL=error; mpirun -np 1 yatm.exe : -np 1 ice_stub.exe : -np 1 ocean_stub.exe
 ```
 
-If Python3 and pytest are installed then all of the above and some additional tests can be run with:
+With the above Python packages installed, all of the above and some additional tests can be run with:
 
 ```{bash}
-module load openmpi
 python -m pytest tests/
 ```
 
 Any individual pytest test can be run using pytest as follows:
 
 ```{bash}
-module load openmpi
-python -m pytest test_stubs.py::TestStubs::test_field_scaling
+python -m pytest tests/test_stubs.py::TestStubs::test_forcing_perturbations
 ```
 
 The above is the only way to run the `FORCING_SCALING` test case because it relies on the Python test code to create one of the inputs.

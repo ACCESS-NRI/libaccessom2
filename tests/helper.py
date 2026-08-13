@@ -21,12 +21,12 @@ class Helper:
     def __init__(self):
         self.test_dir = os.path.dirname(os.path.realpath(__file__))
         self.test_data_dir = os.path.join(self.test_dir, 'test_data')
-        self.atm_exe = os.path.join(self.test_dir, '..',
-                                    'build', 'bin', 'yatm.exe')
-        self.ice_exe = os.path.join(self.test_dir, '..',
-                                    'build', 'bin', 'ice_stub.exe')
-        self.ocean_exe = os.path.join(self.test_dir, '..',
-                                      'build', 'bin', 'ocean_stub.exe')
+        self.atm_exe = shutil.which('yatm.exe')
+        self.ice_exe = shutil.which('ice_stub.exe')
+        self.ocean_exe = shutil.which('ocean_stub.exe')
+        assert self.atm_exe, 'yatm.exe not found on PATH'
+        assert self.ice_exe, 'ice_stub.exe not found on PATH'
+        assert self.ocean_exe, 'ocean_stub.exe not found on PATH'
 
     def checksums(self, exp_dir):
         """
@@ -60,7 +60,8 @@ class Helper:
         """
         pass
 
-    def run_exp(self, exp_dir, restart=False, years_duration=0, months_duration=0, seconds_duration=0):
+    def run_exp(self, exp_dir, restart=False, years_duration=0, months_duration=0,
+                seconds_duration=0, calendar_override=None):
         """
         Run the test experiment in exp_dir
         """
@@ -78,58 +79,73 @@ class Helper:
             shutil.copy(os.path.join(self.test_data_dir, 'o2i.nc'), './')
 
         my_dir = os.path.join(self.test_dir, exp_dir)
+        accessom2_config = os.path.join(my_dir, 'accessom2.nml')
 
-        # Update runtime
-        if years_duration > 0 or months_duration > 0 or seconds_duration > 0:
-            assert not (years_duration > 0 and months_duration > 0)
-            assert not (years_duration > 0 and seconds_duration > 0)
-            assert not (months_duration > 0 and seconds_duration > 0)
-            accessom2_config = os.path.join(my_dir, 'accessom2.nml')
-            with open(accessom2_config) as f:
-                nml = f90nml.read(f)
+        # accessom2.nml is shared - keep track of the original contents and undo any namelist
+        # patches applied below
+        with open(accessom2_config) as f:
+            original_nml = f.read()
+
+        try:
+            # Update runtime
+            if years_duration > 0 or months_duration > 0 or seconds_duration > 0:
+                assert not (years_duration > 0 and months_duration > 0)
+                assert not (years_duration > 0 and seconds_duration > 0)
+                assert not (months_duration > 0 and seconds_duration > 0)
+                nml = f90nml.read(accessom2_config)
                 nml['date_manager_nml']['restart_period'] = \
                     [years_duration, months_duration, seconds_duration]
                 nml.write(accessom2_config, force=True)
 
-        cur_dir = os.getcwd()
-        os.chdir(my_dir)
-        try:
-            os.makedirs(os.path.join(my_dir, 'log'))
-        except FileExistsError:
-            pass
+            # Override the calendar libaccessom2 would otherwise derive from
+            # the forcing files.
+            if calendar_override is not None:
+                nml = f90nml.read(accessom2_config)
+                nml['date_manager_nml']['calendar_override'] = calendar_override
+                nml.write(accessom2_config, force=True)
 
-        if not restart:
-            silentremove('accessom2_restart.nml')
+            cur_dir = os.getcwd()
+            os.chdir(my_dir)
+            try:
+                os.makedirs(os.path.join(my_dir, 'log'))
+            except FileExistsError:
+                pass
 
-        clean_restarts()
-        copy_oasis_restarts()
-        clean_logs()
+            if not restart:
+                silentremove('accessom2_restart.nml')
 
-        cmd = shlex.split(run_cmd.format(atm_exe=self.atm_exe,
-                                         ice_exe=self.ice_exe,
-                                         ocean_exe=self.ocean_exe))
-        retcode = 0
-        try:
-            output = sp.check_output(cmd)
-        except sp.CalledProcessError as e:
-            retcode = e.returncode
+            clean_restarts()
+            copy_oasis_restarts()
+            clean_logs()
 
-        if retcode != 0:
-            return retcode, None, None, None
+            cmd = shlex.split(run_cmd.format(atm_exe=self.atm_exe,
+                                             ice_exe=self.ice_exe,
+                                             ocean_exe=self.ocean_exe))
+            retcode = 0
+            try:
+                output = sp.check_output(cmd)
+            except sp.CalledProcessError as e:
+                retcode = e.returncode
 
-        log = ''
-        with open(os.path.join(my_dir, 'log', 'matmxx.pe00000.log')) as f:
-            log += f.read()
-            matm_log = log
-        with open(os.path.join(my_dir, 'log', 'cicexx.pe00001.log')) as f:
-            log += f.read()
-        with open(os.path.join(my_dir, 'log', 'mom5xx.pe00002.log')) as f:
-            log += f.read()
+            if retcode != 0:
+                return retcode, None, None, None
 
-        with open(os.path.join(my_dir, 'log', 'all.log'), 'w') as f:
-            f.write(log)
+            log = ''
+            with open(os.path.join(my_dir, 'log', 'matmxx.pe00000.log')) as f:
+                log += f.read()
+                matm_log = log
+            with open(os.path.join(my_dir, 'log', 'cicexx.pe00001.log')) as f:
+                log += f.read()
+            with open(os.path.join(my_dir, 'log', 'mom5xx.pe00002.log')) as f:
+                log += f.read()
 
-        return retcode, output.decode('utf-8'), log, matm_log
+            with open(os.path.join(my_dir, 'log', 'all.log'), 'w') as f:
+                f.write(log)
+
+            return retcode, output.decode('utf-8'), log, matm_log
+        finally:
+            with open(accessom2_config, 'w') as f:
+                f.write(original_nml)
 
 if __name__ == '__main__':
     sys.exit(run_exp('JRA55_RYF'))

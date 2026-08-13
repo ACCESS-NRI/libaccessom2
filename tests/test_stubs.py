@@ -12,27 +12,6 @@ import shutil
 from collections import OrderedDict
 from helper import Helper
 
-class LogItem:
-
-    def __init__(self, field_name, field_file,
-                 field_index, forcing_datetime, checksum,
-                 cur_exp_dts, cur_forcing_dts):
-        self.forcing_datetime = forcing_datetime
-        self.field_name = field_name
-        self.field_file = field_file
-        self.field_index = field_index
-        self.checksum = checksum
-        self.cur_exp_dts = cur_exp_dts
-        self.cur_forcing_dts = cur_forcing_dts
-
-
-def extract_field_name(checksum):
-    k = list(checksum.keys())
-    assert len(k) == 1
-    k = k[0]
-
-    return k.split('-')[2]
-
 def dicts_to_list(key_name, log_str):
     lines = filter(lambda x : key_name in x, log_str.splitlines())
     out = []
@@ -41,80 +20,24 @@ def dicts_to_list(key_name, log_str):
     return out
 
 
-def build_log_items(log_str):
+def get_exchange_datetimes(log_str):
+    """
+    Return the (cur_exp_dts, cur_forcing_dts) pairs logged once per exchange.
+    """
 
-    # There will be one of these for each single field exchange
-    forcing_update_dts = dicts_to_list('forcing_update_field-datetime', log_str)
-    forcing_update_dts = [dateutil.parser.parse(d) for d in forcing_update_dts]
-    field_update_files = dicts_to_list('field_update_data-file', log_str)
-    field_update_indices = dicts_to_list('field_update_data-index', log_str)
-
-    tmp_chk = filter(lambda x : 'checksum' in x, log_str.splitlines())
-    checksums = []
-    for c in tmp_chk:
-        checksums.append(ast.literal_eval(c.strip()))
-
-    # Remove duplicate runoff checksums
-    checksums, num_removed = remove_duplicate_runoff_checksums(checksums)
-
-    assert len(forcing_update_dts) == len(field_update_files) == \
-                len(field_update_indices) == len(checksums)
-
-    # Figure out field names
-    field_names = set()
-    for i in range(len(forcing_update_dts)):
-        field_name = extract_field_name(checksums[i])
-        field_names.add(field_name)
-    field_names = list(field_names)
-
-    # There should be one cur_exp_dts and cur_forcing_dts for each exchange of
-    # all fields
     cur_exp_dts = dicts_to_list('cur_exp-datetime', log_str)
     cur_exp_dts = [dateutil.parser.parse(d) for d in cur_exp_dts]
     cur_forcing_dts = dicts_to_list('cur_forcing-datetime', log_str)
     cur_forcing_dts = [dateutil.parser.parse(d) for d in cur_forcing_dts]
-    assert len(cur_exp_dts) == len(cur_forcing_dts) == \
-            (len(forcing_update_dts) // len(field_names))
+    assert len(cur_exp_dts) == len(cur_forcing_dts) > 0
 
-    log_items = []
-    i = 0
-    for xchgi in range(len(cur_forcing_dts)):
-        for fldi in range(len(field_names)):
-            item = LogItem(field_names[fldi], field_update_files[i],
-                           field_update_indices[i], forcing_update_dts[i],
-                           checksums[i], cur_exp_dts[xchgi],
-                           cur_forcing_dts[xchgi])
-            log_items.append(item)
-            i += 1
-
-    return log_items
-
-def remove_duplicate_runoff_checksums(checksums):
-
-    new_checksums = []
-    found_runoff_checksums = []
-    num_removed_runoff_checksums = 0
-
-    for c in checksums:
-        k = list(c.keys())
-        v = list(c.values())
-        assert len(k) == 1
-        if 'runof_ai' in k[0]:
-            if v[0] not in found_runoff_checksums:
-                new_checksums.append(c)
-                found_runoff_checksums.append(v[0])
-            else:
-                num_removed_runoff_checksums += 1
-        else:
-            new_checksums.append(c)
-
-    return new_checksums, num_removed_runoff_checksums
+    return cur_exp_dts, cur_forcing_dts
 
 @pytest.fixture
 def helper():
     return Helper()
 
-@pytest.fixture(params=['JRA55_RYF_MINIMAL', 'JRA55_IAF', 'JRA55_RYF', 'JRA55_v1p4_IAF'])
+@pytest.fixture(params=['JRA55_RYF_MINIMAL', 'JRA55_IAF', 'JRA55_RYF', 'JRA55_v1p3_IAF'])
 def exp(request):
     yield request.param
 
@@ -159,8 +82,8 @@ class TestStubs:
         """
 
         forcing_field = None
-        scaling_file = 'test_data/scaling.RYF.rsds.1990_1991.nc'
-        forcing_file = '/g/data/ua8/JRA55-do/RYF/v1-3/RYF.rsds.1990_1991.nc'
+        scaling_file = os.path.join(helper.test_data_dir, 'scaling.RYF.rsds.1990_1991.nc')
+        forcing_file = '/g/data/vk83/configurations/inputs/JRA-55/RYF/v1-4/data/RYF.rsds.1990_1991.nc'
         shutil.copy(forcing_file, scaling_file)
 
         keys = ['checksum-matmxx-swfld_ai-0000000000',
@@ -186,6 +109,68 @@ class TestStubs:
             assert abs(run_checksums[k] - (expected_val)) < (expected_val * 1e-7)
 
 
+    @pytest.mark.fast
+    def test_calendar_override_unsupported(self, helper):
+        """
+        Test that an unrecognised calendar_override causes the model to abort.
+        """
+
+        ret, output, log, matm_log = helper.run_exp(
+            'JRA55_RYF_MINIMAL',
+            calendar_override='julian'
+        )
+        assert ret != 0
+
+
+    @pytest.mark.fast
+    @pytest.mark.parametrize('exp_name,calendar', {
+        'JRA55_RYF_MINIMAL': 'noleap',
+        'JRA55_IAF_SINGLE_FIELD': 'gregorian',
+    }.items())
+    def test_calendar_override_matching(self, helper, exp_name, calendar):
+        """
+        Test that setting calendar_override to the same calendar already used by the
+        forcing files does not change model behaviour.
+        """
+
+        ret, output, log, matm_log = helper.run_exp(exp_name, calendar_override=calendar)
+        assert ret == 0
+
+        run_checksums = helper.filter_checksums(log)
+        stored_checksums = helper.checksums(exp_name)
+        assert run_checksums == stored_checksums
+
+
+    @pytest.mark.fast
+    def test_calendar_override_noleap(self, helper):
+        """
+        Test that calendar_override='noleap' with gregorian JRA55_IAF forcing data skips
+        Feb 29th in the forcing data
+        """
+
+        ret, output, log, matm_log = helper.run_exp('JRA55_IAF', calendar_override='noleap')
+        assert ret == 0
+
+        cur_exp_dts, cur_forcing_dts = get_exchange_datetimes(matm_log)
+        assert cur_exp_dts == cur_forcing_dts
+        for dt in cur_forcing_dts:
+            assert not (dt.month == 2 and dt.day == 29)
+
+
+    @pytest.mark.fast
+    def test_calendar_override_gregorian(self, helper):
+        """
+        Test that calendar_override='gregorian' with noleap JRA55_RYF_MINIMAL forcing
+        data aborts since it is not currently supported
+        """
+
+        ret, output, log, matm_log = helper.run_exp(
+            'JRA55_RYF_MINIMAL',
+            calendar_override='gregorian'
+        )
+        assert ret != 0
+
+
     @pytest.mark.slow
     def test_forcing_fields(self, helper, exp):
         """
@@ -195,7 +180,7 @@ class TestStubs:
         ret, output, log, matm_log = helper.run_exp(exp)
         assert ret == 0
 
-        log_items = build_log_items(matm_log)
+        cur_exp_dts, cur_forcing_dts = get_exchange_datetimes(matm_log)
 
         # Get the experiment start and end dates
         exp_dir = os.path.join(helper.test_dir, exp)
@@ -213,10 +198,10 @@ class TestStubs:
             forcing = json.load(f)
 
         # Check that first forcing time corrosponds to forcing_start_date
-        assert log_items[0].forcing_datetime == forcing_start_date
+        assert cur_forcing_dts[0] == forcing_start_date
 
         # Check that field dt is all the same and as expected
-        uniq_dt = list(OrderedDict.fromkeys(forcing_update_dts))
+        uniq_dt = list(OrderedDict.fromkeys(cur_forcing_dts))
         dt = [b - a for a, b in zip(uniq_dt, uniq_dt[1:])]
         assert set(dt).pop() == datetime.timedelta(hours=3)
 
@@ -238,7 +223,8 @@ class TestStubs:
         pass
 
     @pytest.mark.slow
-    def test_iaf_cycles(self, helper, exp_fast):
+    @pytest.mark.parametrize('calendar_override', [None, 'noleap'])
+    def test_iaf_cycles(self, helper, exp_fast, calendar_override):
         """
         Test that experiment and forcing dates are always in sync.
 
@@ -246,29 +232,45 @@ class TestStubs:
         https://github.com/COSIMA/access-om2/issues/149
         """
 
-        runtime_years = 5*60
+        cycle_length = 5
+        runtime_years = 5*cycle_length
+        # replay_years is the list of experiment years where the forcing year is not a leap year
+        # but the experiment year is. accessom2_progress_date replays the previous forcing for
+        # the leap day in these years.
+        replay_years = [1964, 1968, 1972, 1976]
         curr_year = 0
-        curr_cycle = 0
 
         while curr_year <= runtime_years:
             restart = curr_year != 0
-            ret, output, log, matm_log = helper.run_exp(exp_fast, restart=restart, years_duration=1)
+            ret, output, log, matm_log = helper.run_exp(
+                exp_fast,
+                restart=restart,
+                years_duration=1,
+                calendar_override=calendar_override
+            )
             assert ret == 0
 
-            curr_cycle = curr_year // 60
+            curr_cycle = curr_year // cycle_length
 
-            log_items = build_log_items(matm_log)
+            cur_exp_dts, cur_forcing_dts = get_exchange_datetimes(matm_log)
 
-            for li in log_items:
+            for exp_dt, forcing_dt in zip(cur_exp_dts, cur_forcing_dts):
                 # Check the experiment year
-                assert li.cur_exp_dts.year == curr_year + 1958
-                assert li.cur_exp_dts.year == li.cur_forcing_dts.year + (curr_cycle * 60)
+                assert exp_dt.year == curr_year + 1958
+                assert exp_dt.year == forcing_dt.year + (curr_cycle * cycle_length)
 
-                # Check that experiment and forcing dates only differ in the year.
-                assert li.cur_exp_dts.month == li.cur_forcing_dts.month
-                assert li.cur_exp_dts.day == li.cur_forcing_dts.day
-                assert li.cur_exp_dts.hour == li.cur_forcing_dts.hour
-                assert li.cur_exp_dts.minute == li.cur_forcing_dts.minute
-                assert li.cur_exp_dts.second == li.cur_forcing_dts.second
+                if exp_dt.year in replay_years and exp_dt.month == 2 and exp_dt.day == 29:
+                    # The forcing year doesn't have this leap day, so the
+                    # previous forcing day is replayed instead.
+                    assert calendar_override != 'noleap'
+                    assert forcing_dt.month == 2 and forcing_dt.day == 28
+                else:
+                    # Check that experiment and forcing dates only differ in the year.
+                    assert exp_dt.month == forcing_dt.month
+                    assert exp_dt.day == forcing_dt.day
+
+                assert exp_dt.hour == forcing_dt.hour
+                assert exp_dt.minute == forcing_dt.minute
+                assert exp_dt.second == forcing_dt.second
 
             curr_year += 1
