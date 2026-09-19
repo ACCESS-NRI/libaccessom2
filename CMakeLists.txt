@@ -48,7 +48,7 @@ endif()
 if(CMAKE_Fortran_COMPILER_ID MATCHES Intel)
   set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -r8 -fpe0 -fp-model precise -fp-model source -align all -traceback")
   set(CMAKE_Fortran_FLAGS_DEBUG "-g3 -O0 -check all")
-  set(CMAKE_Fortran_FLAGS_RELEASE "-g3 -O2 -axCORE-AVX2 -debug all -check none -qopt-report=5 -qopt-report-annotate")
+  set(CMAKE_Fortran_FLAGS_RELEASE "-g3 -O2 -debug all -check none ")
 endif()
 
 find_package(PkgConfig REQUIRED)
