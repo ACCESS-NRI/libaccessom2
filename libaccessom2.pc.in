@@ -1,11 +1,11 @@
 prefix="@CMAKE_INSTALL_PREFIX@"
 exec_prefix="${prefix}"
-libdir="${prefix}/lib"
+libdir="${prefix}/@CMAKE_INSTALL_LIBDIR@"
 includedir="${prefix}/include"
 
 Name: libaccessom2
 Description: @CMAKE_PROJECT_DESCRIPTION@
 Version: @PROJECT_VERSION@
-Requires.private: datetime-fortran
+Requires: datetime-fortran
 Cflags: -I"${includedir}"
 Libs: -L"${libdir}" -laccessom2
