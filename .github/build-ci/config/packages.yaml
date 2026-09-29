@@ -1,0 +1,32 @@
+packages:
+  oasis3-mct:
+    require:
+    - '@2025.03.001'
+  access-fms:
+    require:
+    - '@2025.08.001'
+  access-generic-tracers:
+    require:
+    - '@2026.09.000'
+  access-mocsy:
+    require:
+    - '@2025.07.002'
+  netcdf-c:
+    require:
+    - '@4.9.2'
+  netcdf-fortran:
+    require:
+    - '@4.6.1'
+  parallelio:
+    require:
+    - '@2.6.8'
+  openmpi:
+    require:
+    - '@5.0.8'
+  mom5:
+    require:
+    - '@2026.02.002'
+  cice5:
+    require:
+    - '@2026.07.000'
+    - 'io_type=PIO build_system=cmake'
